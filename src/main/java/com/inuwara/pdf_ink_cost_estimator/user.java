@@ -9,7 +9,9 @@ public class user {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(name="user_name")
     private String username;
+    @Column(name="pass_word")
     private String password;
 
     // Getters and Setters
