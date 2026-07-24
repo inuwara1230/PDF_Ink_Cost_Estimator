@@ -48,7 +48,17 @@
 
                     <button type="submit">save</button>
                     <button>update</button>
+
+                    
                 </form>
+                <hr>
+                <form id="uploadForm">
+                    <h3>Upload PDF for Cost Estimation</h3>
+                    <input type="file" id="pdfFileInput" accept="application/pdf" required>
+                    <button type="submit">Analyze PDF</button>
+                </form>
+
+                <div id="uploadStatus"></div>
             </div>
             
             <div id="result"></div>
