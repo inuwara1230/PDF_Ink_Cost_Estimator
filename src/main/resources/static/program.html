@@ -21,7 +21,7 @@
                     <input type="number" id="covarage_percentage" value="5" name="covarage_percentage" placeholder="Coverage percentage" required>
 
 
-                    <label for="color_capability">Color Capability:</label>
+                    <label for="color_capability">Printer Color Capability:</label>
                     <select id="color_capability" name="color_capability">
                         <option value="color">Full Color (CMYK)</option>
                         <option value="Monochrome">Monochrome (Black & White)</option>
@@ -48,6 +48,21 @@
                         <input type="number" id="yellowPrice" placeholder="Price">
                         <input type="number" id="yellowYield" placeholder="Yield">
                     </div>
+                    <div id="colorType">
+                        <h3>are you printing in black & white or full color?</h3>
+                        <select id="colorTypeSelect" name="colorTypeSelect">
+                            <option value="fullColor">Full Color</option>
+                            <option value="Monochrome">Black & White</option>
+                        </select>
+                    </div>
+
+                    
+
+                    <div>
+                        <h3>cost of an A4 paper</h3>
+                        <input type="number" id="paperCost" name="paperCost" placeholder="Price of an A4 paper" required>
+                    </div>
+                   
 
                     <button type="submit">save</button>
                     <button>update</button>

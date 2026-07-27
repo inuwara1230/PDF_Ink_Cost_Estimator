@@ -26,12 +26,32 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
     const fileInput = document.getElementById('pdfFileInput');
     const file = fileInput.files[0];
 
+    const colorMode = document.getElementById('colorTypeSelect').value;
+
     if (!file) {
         document.getElementById('uploadStatus').innerText = 'Please select a PDF file.';
         return;
     }
+
+    const jobID = crypto.randomUUID();
+
+    const statusText = document.getElementById('uploadStatus');
+    statusText.innerText = 'Connecting to server...';
+
+    const eventSource = new EventSource(`/api/progress/${jobID}`);
+
+    eventSource.onmessage = function(event) {
+        statusText.innerText = event.data;
+
+        if(event.data === 'complete') {
+            eventSource.close();
+        }
+    }
+
     const formData = new FormData();
     formData.append('pdfDocument', file);
+    formData.append('colorCapability', colorMode);
+    formData.append('jobID', jobID);
 
     try{
         document.getElementById('uploadStatus').innerText = 'Uploading...';
