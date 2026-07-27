@@ -1,32 +1,21 @@
-document.getElementById('loginForm').addEventListener('submit', async function(e) {
-    e.preventDefault(); // Stop page from refreshing
-
-    const usernameInput = document.getElementById('username').value;
-    const passwordInput = document.getElementById('password').value;
-
-    const credentials = {
-        username: usernameInput,
-        password: passwordInput
-    };
-
+async function handleCredentialResponse(response) {
     try {
-        const response = await fetch('/api/login', {
+        const res = await fetch('/api/google-login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(credentials)
+            body: JSON.stringify({ token: response.credential })
         });
 
-        if (response.ok) {
-            
+        if (res.ok) {
             window.location.href = 'program.html'; 
         } else {
-            const errorText = await response.text();
+            const errorText = await res.text();
             document.getElementById('errorMsg').innerText = errorText;
         }
     } catch (error) {
-        console.error('Error during login:', error);
-        document.getElementById('errorMsg').innerText = 'An error occurred. Try again.';
+        console.error('Error during Google login:', error);
+        document.getElementById('errorMsg').innerText = 'Google Login failed. Try again.';
     }
-});
+}

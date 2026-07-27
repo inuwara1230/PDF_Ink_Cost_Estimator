@@ -56,7 +56,8 @@ public class DocumentController {
         @RequestParam(value = "magentaPrice", defaultValue = "0") double magentaPrice,
         @RequestParam(value = "magentaYield", defaultValue = "1") double magentaYield,
         @RequestParam(value = "yellowPrice", defaultValue = "0") double yellowPrice,
-        @RequestParam(value = "yellowYield", defaultValue = "1") double yellowYield)
+        @RequestParam(value = "yellowYield", defaultValue = "1") double yellowYield,
+        @RequestParam(value = "paperCost", required = false, defaultValue = "0") double paperCost)
      {
         // 1. Verify a file was actually sent
         if (file.isEmpty()) {
@@ -72,7 +73,7 @@ public class DocumentController {
 
             double fileSizeInBytes = file.getSize();
             byte[] fileBytes = file.getBytes();
-            new Thread(() -> processPDFinBackground(fileBytes, colorCapability, jobID, fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield, magentaPrice, magentaYield, yellowPrice, yellowYield)).start();
+            new Thread(() -> processPDFinBackground(fileBytes, colorCapability, jobID, fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield, magentaPrice, magentaYield, yellowPrice, yellowYield, paperCost)).start();
             return ResponseEntity.ok("Upload received, processing started...");
         }
         catch (Exception e) {
@@ -81,7 +82,7 @@ public class DocumentController {
         }
     }
 
-    private void processPDFinBackground(byte[] fileBytes, String colorCapability, String jobId, double fileSizeInBytes, double blackPrice, double blackYield, double isoCoverage, double cyanPrice, double cyanYield, double magentaPrice, double magentaYield, double yellowPrice, double yellowYield){
+    private void processPDFinBackground(byte[] fileBytes, String colorCapability, String jobId, double fileSizeInBytes, double blackPrice, double blackYield, double isoCoverage, double cyanPrice, double cyanYield, double magentaPrice, double magentaYield, double yellowPrice, double yellowYield,double paperCost) {
         SseEmitter emitter = emitters.get(jobId);
         if (emitter == null) return; // Client disconnected
 
@@ -174,17 +175,26 @@ public class DocumentController {
             double totalInkCost = cyanCost + magentaCost + yellowCost + blackCost;
             String inkCostMessage = String.format("Total Ink Cost: %.2f (Cyan: %.2f, Magenta: %.2f, Yellow: %.2f, Black: %.2f)", totalInkCost, cyanCost, magentaCost, yellowCost, blackCost);
             
+            double totalPaperCost = paperCost * totalPages;
+            String paperCostMessage = String.format("Total Paper Cost: %.2f", totalPaperCost);
+
+            double totalCost = totalInkCost + totalPaperCost;
+            String totalCostMessage = String.format("Total Cost: %.2f", totalCost);
 
             long endTime = System.currentTimeMillis();
             long processingTime = (endTime - startTime)/1000;
+
             String inkUsageMessage = String.format("Total Ink Usage - Cyan: %.2f%%, Magenta: %.2f%%, Yellow: %.2f%%, Black: %.2f%%",
                     totalCyan, totalMagenta, totalYellow, totalBlack);
             //----Pass the 'file' to Apache PDFBox for rasterization and pixel analysis-----
 
             System.out.println(inkUsageMessage);
             System.out.println("Processing Time: " + processingTime + " s");
-            emitter.send("PDF uploaded successfully! "+"\n" + fileSizeMessage + "\n" + inkUsageMessage +"\nProcessing Time: " + processingTime + " s");
-            emitter.send(inkCostMessage);
+
+            emitter.send(fileSizeMessage +"#Pages: " + totalPages + "\n" 
+             + inkUsageMessage + "\n Processing Time: " +
+              processingTime + " s \n" + inkCostMessage + "\n" + paperCostMessage + "\n" + totalCostMessage);
+            
 
         } catch (Exception e) {
             ///e.printStackTrace();

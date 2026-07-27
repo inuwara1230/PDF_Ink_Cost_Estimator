@@ -1,22 +1,27 @@
 <!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
-    <!-- <link rel="stylesheet" href="style.css"> -->
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <div class="container">
-        <h1>Login</h1>
-        <form id="loginForm">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-            <button type="submit">Login</button>
-        </form>
+        <h1>Welcome</h1>
+        <p>Please sign in to access the Printer Cost Estimator.</p>
+
+        <!-- Google Sign-In Component (Paste your Client ID here too) -->
+        <div id="g_id_onload"
+             data-client_id="886373325461-blnvf31hpc3gq4oipa7b69csd9k6i7fv.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse">
+        </div>
+        <div class="g_id_signin" data-type="standard"></div>
+
         <p id="errorMsg" style="color: red;"></p>
     </div>
+    
     <script src="index.js"></script>
 </body>
 </html>
