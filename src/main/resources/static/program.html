@@ -18,7 +18,7 @@
                         <option value="laser">Laser</option>
                     </select>
                     <label for="covarage_percentage">ISO Coverage %:</label>
-                    <input type="number" id="covarage_percentage" value="5" name="covarage_percentage" placeholder="Coverage percentage" required>
+                    <input type="number" id="covarage_percentage" value="5" name="covarage_percentage" title = 'The percentage of the page that will be covered by ink according to ISO standards specified by the manufacturer' placeholder="Coverage percentage" required>
 
 
                     <label for="color_capability">Printer Color Capability:</label>
@@ -30,7 +30,7 @@
                     <div id="monochrome">
                         <h3>Black Cartridge</h3>
                         <input type="number" id="monochrome_cost" name="monochrome_cost" placeholder="Price" required>
-                        <input type="number" id="monochrome_yield" name="monochrome_yield" placeholder="yield" required>
+                        <input type="number" id="monochrome_yield" name="monochrome_yield" title="how many papers can a single catridge be used for?" placeholder="yield" required>
                     </div>
 
                     <div id="full_color">
@@ -38,15 +38,15 @@
         
                         <label>Cyan:</label>
                         <input type="number" id="cyanPrice" placeholder="Price">
-                        <input type="number" id="cyanYield" placeholder="Yield">
+                        <input type="number" id="cyanYield" title="how many papers can a single catridge be used for?" placeholder="Yield">
 
                         <label>Magenta:</label>
                         <input type="number" id="magentaPrice" placeholder="Price">
-                        <input type="number" id="magentaYield" placeholder="Yield">
+                        <input type="number" id="magentaYield" title="how many papers can a single catridge be used for?" placeholder="Yield">
 
                         <label>Yellow:</label>
                         <input type="number" id="yellowPrice" placeholder="Price">
-                        <input type="number" id="yellowYield" placeholder="Yield">
+                        <input type="number" id="yellowYield" title="how many papers can a single catridge be used for?" placeholder="Yield">
                     </div>
                     <div id="colorType">
                         <h3>are you printing in black & white or full color?</h3>
@@ -59,8 +59,8 @@
                     
 
                     <div>
-                        <h3>cost of an A4 paper</h3>
-                        <input type="number" id="paperCost" name="paperCost" placeholder="Price of an A4 paper" required>
+                        <h3>cost of a paper</h3>
+                        <input type="number" id="paperCost" name="paperCost" placeholder="Price of a paper" title="price of the printing paper you are going to use" required>
                     </div>
                    
 
@@ -74,6 +74,7 @@
                     <input type="file" id="pdfFileInput" accept="application/pdf" required>
                     <button type="submit">Analyze PDF</button>
                 </form>
+                <hr>
 
                 <div id="uploadStatus"></div>
             </div>

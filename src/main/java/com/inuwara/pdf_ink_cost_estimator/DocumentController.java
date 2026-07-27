@@ -47,7 +47,17 @@ public class DocumentController {
     public ResponseEntity<String> handlePdfUpload(
         @RequestParam("pdfDocument") MultipartFile file,
         @RequestParam(value = "colorCapability", required = false, defaultValue = "color") String colorCapability,
-        @RequestParam(value = "jobID", required = false) String jobID) {
+        @RequestParam(value = "jobID", required = false) String jobID,
+        @RequestParam(value = "blackPrice", required = false, defaultValue = "0") double blackPrice,
+        @RequestParam(value = "blackYield", required = false, defaultValue = "1") double blackYield,
+        @RequestParam(value = "isoCoverage", required = false, defaultValue = "5") double isoCoverage,
+        @RequestParam(value = "cyanPrice", defaultValue = "0") double cyanPrice,
+        @RequestParam(value = "cyanYield", defaultValue = "1") double cyanYield,
+        @RequestParam(value = "magentaPrice", defaultValue = "0") double magentaPrice,
+        @RequestParam(value = "magentaYield", defaultValue = "1") double magentaYield,
+        @RequestParam(value = "yellowPrice", defaultValue = "0") double yellowPrice,
+        @RequestParam(value = "yellowYield", defaultValue = "1") double yellowYield)
+     {
         // 1. Verify a file was actually sent
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("File is empty.");
@@ -62,7 +72,7 @@ public class DocumentController {
 
             double fileSizeInBytes = file.getSize();
             byte[] fileBytes = file.getBytes();
-            new Thread(() -> processPDFinBackground(fileBytes, colorCapability, jobID, fileSizeInBytes)).start();
+            new Thread(() -> processPDFinBackground(fileBytes, colorCapability, jobID, fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield, magentaPrice, magentaYield, yellowPrice, yellowYield)).start();
             return ResponseEntity.ok("Upload received, processing started...");
         }
         catch (Exception e) {
@@ -71,19 +81,20 @@ public class DocumentController {
         }
     }
 
-    private void processPDFinBackground(byte[] fileBytes, String colorCapability, String jobId, double fileSizeInBytes){
+    private void processPDFinBackground(byte[] fileBytes, String colorCapability, String jobId, double fileSizeInBytes, double blackPrice, double blackYield, double isoCoverage, double cyanPrice, double cyanYield, double magentaPrice, double magentaYield, double yellowPrice, double yellowYield){
         SseEmitter emitter = emitters.get(jobId);
         if (emitter == null) return; // Client disconnected
 
-        
         boolean isMonochrome = "Monochrome".equalsIgnoreCase(colorCapability);
 
         try(PDDocument document = Loader.loadPDF(fileBytes)) {
+
             long startTime = System.currentTimeMillis();
             double fileSizeInMB =(double)fileSizeInBytes / (1024.0 * 1024.0);
             String fileSizeMessage = String.format("File size: %.2f MB", fileSizeInMB);
+            
             PDFRenderer renderer = new PDFRenderer(document);
-            // For now, just print the file details to the console to verify it worked
+            
             int totalPages = document.getNumberOfPages();
             emitter.send("analyzing " + totalPages + " pages of the PDF file...");
             //System.out.println("Received file: " + document.getOriginalFilename()+ "size : " + fileSizeMessage);
@@ -92,10 +103,16 @@ public class DocumentController {
             System.out.println("Total # pages: " + totalPages);
             final double standard_A4_Area =500990.0; // Standard US Letter size in square inches
             double totalAreaMultiplier = 0.0;
+
             double totalCyan = 0.0;
             double totalMagenta = 0.0;
             double totalYellow = 0.0;
             double totalBlack = 0.0;
+
+            double cyanCost = 0.0;
+            double magentaCost = 0.0;
+            double yellowCost = 0.0;
+            double blackCost = 0.0;
 
             for(int i=0; i<totalPages;i++){
                 emitter.send("Processing page " + (i+1) + " of " + totalPages + "...");
@@ -103,12 +120,16 @@ public class DocumentController {
                 PDPage page = document.getPage(i);
                 PDRectangle mediaBox = page.getMediaBox();
                 double pageArea =  mediaBox.getWidth() * mediaBox.getHeight() ;
-                totalAreaMultiplier += (pageArea / standard_A4_Area);
-                BufferedImage image =renderer.renderImageWithDPI(i, 72); // Render at 72 DPI
+                totalAreaMultiplier = (pageArea / standard_A4_Area);
+                BufferedImage image =renderer.renderImageWithDPI(i, 150); // Render at 150 DPI
+
                 int width = image.getWidth();
                 int height = image.getHeight();  
+
                 double totalPixels = width * height;
+
                 double pageCyan = 0.0, pageMagenta = 0.0, pageYellow = 0.0, pageBlack = 0.0;
+
                 for (int x=0;x<width;x++){
                     for(int y=0;y<height;y++){
                         Color pixelColor = new Color(image.getRGB(x,y));
@@ -144,6 +165,16 @@ public class DocumentController {
                 totalBlack += (pageBlack / totalPixels)*100*totalAreaMultiplier;
 
             }
+
+            cyanCost = isMonochrome ? 0 :totalCyan * (cyanPrice/(cyanYield*isoCoverage)); // Assuming $0.05 per % of cyan used
+            magentaCost = isMonochrome ? 0 :totalMagenta * (magentaPrice/(magentaYield*isoCoverage));
+            yellowCost = isMonochrome ? 0 :totalYellow * (yellowPrice/(yellowYield*isoCoverage));
+            blackCost = totalBlack * (blackPrice/(blackYield*isoCoverage));
+
+            double totalInkCost = cyanCost + magentaCost + yellowCost + blackCost;
+            String inkCostMessage = String.format("Total Ink Cost: %.2f (Cyan: %.2f, Magenta: %.2f, Yellow: %.2f, Black: %.2f)", totalInkCost, cyanCost, magentaCost, yellowCost, blackCost);
+            
+
             long endTime = System.currentTimeMillis();
             long processingTime = (endTime - startTime)/1000;
             String inkUsageMessage = String.format("Total Ink Usage - Cyan: %.2f%%, Magenta: %.2f%%, Yellow: %.2f%%, Black: %.2f%%",
@@ -153,9 +184,11 @@ public class DocumentController {
             System.out.println(inkUsageMessage);
             System.out.println("Processing Time: " + processingTime + " s");
             emitter.send("PDF uploaded successfully! "+"\n" + fileSizeMessage + "\n" + inkUsageMessage +"\nProcessing Time: " + processingTime + " s");
+            emitter.send(inkCostMessage);
 
         } catch (Exception e) {
-           
+            ///e.printStackTrace();
+            //emitter.completeWithError(e);
         }
     }
     

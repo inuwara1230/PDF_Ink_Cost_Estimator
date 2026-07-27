@@ -1,9 +1,14 @@
 document.getElementById('color_capability').addEventListener('change', function() {
     const full_color = document.getElementById('full_color');
+    const printering_color_type = document.getElementById('colorTypeSelect');
     
     if (this.value === 'Monochrome') {
         // Hide the color inputs
         full_color.style.display = 'none';
+        printering_color_type.value = 'Monochrome';
+        
+        printering_color_type.disabled = true; // Disable the color type select when monochrome is selected
+        printering_color_type.dispatchEvent(new Event('change'));
         
         // Optional: Clear out any data they might have typed before switching to monochrome
         document.getElementById('cyanPrice').value = '';
@@ -15,6 +20,9 @@ document.getElementById('color_capability').addEventListener('change', function(
     } else {
         // Show the color inputs
         full_color.style.display = 'block';
+        printering_color_type.value = 'fullColor';
+        printering_color_type.disabled = false; // Enable the color type select when full color is selected
+        printering_color_type.dispatchEvent(new Event('change'));
     }
 });
 
@@ -52,6 +60,19 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
     formData.append('pdfDocument', file);
     formData.append('colorCapability', colorMode);
     formData.append('jobID', jobID);
+
+    formData.append('blackPrice', document.getElementById('monochrome_cost').value || '0');
+    formData.append('blackYield', document.getElementById('monochrome_yield').value || '1');
+    formData.append('isoCoverage', document.getElementById('covarage_percentage').value || '5');
+
+    if (colorMode !== 'Monochrome') {
+        formData.append('cyanPrice', document.getElementById('cyanPrice').value || '0');
+        formData.append('cyanYield', document.getElementById('cyanYield').value || '1');
+        formData.append('magentaPrice', document.getElementById('magentaPrice').value || '0');
+        formData.append('magentaYield', document.getElementById('magentaYield').value || '1');
+        formData.append('yellowPrice', document.getElementById('yellowPrice').value || '0');
+        formData.append('yellowYield', document.getElementById('yellowYield').value || '1');
+    }
 
     try{
         document.getElementById('uploadStatus').innerText = 'Uploading...';
