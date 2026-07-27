@@ -1,0 +1,125 @@
+/* program.css */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: #f8fafc;
+    color: #1e293b;
+    line-height: 1.5;
+    padding: 40px 20px;
+}
+
+.container {
+    background: #ffffff;
+    max-width: 650px;
+    margin: 0 auto;
+    padding: 32px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 24px;
+    color: #0f172a;
+    border-bottom: 2px solid #f1f5f9;
+    padding-bottom: 12px;
+}
+
+h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 20px 0 10px 0;
+    color: #334155;
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: #475569;
+}
+
+input[type="number"],
+input[type="file"],
+select {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #1e293b;
+    background-color: #fff;
+    transition: border-color 0.15s ease-in-out;
+}
+
+input[type="number"]:focus,
+select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+button {
+    background-color: #2563eb;
+    color: white;
+    font-weight: 500;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-right: 8px;
+    margin-bottom: 12px;
+    transition: background-color 0.15s ease-in-out;
+}
+
+button:hover {
+    background-color: #1d4ed8;
+}
+
+#clear_settings {
+    background-color: #64748b;
+}
+
+#clear_settings:hover {
+    background-color: #475569;
+}
+
+#logoutButton {
+    background-color: #dc2626 !important;
+}
+
+#logoutButton:hover {
+    background-color: #b91c1c !important;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 24px 0;
+}
+
+#settingsStatus,
+#uploadStatus {
+    display: block;
+    font-size: 13px;
+    margin-top: 8px;
+    color: #059669;
+}
+
+#full_color,
+#monochrome {
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 16px;
+}
