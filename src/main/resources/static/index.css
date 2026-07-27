@@ -1,4 +1,4 @@
-/* index.css */
+/* login.css */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -7,45 +7,67 @@
 }
 
 body {
-    background-color: #f8fafc;
-    color: #1e293b;
+    background-color: #0b132b; /* Professional dark blue background */
+    color: #f1f5f9; /* Pearl white text */
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Left Half: Welcome Message */
+.login-left {
+    flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-}
-
-.container {
-    background: #ffffff;
     padding: 40px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    border-right: 1px solid rgba(255, 255, 255, 0.08); /* Subtle border divider */
+}
+
+.welcome-content {
+    max-width: 420px;
+}
+
+.login-left h1 {
+    font-size: 42px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #f8fafc; /* Bright pearl white */
+}
+
+.login-left p {
+    font-size: 16px;
+    color: #cbd5e1; /* Soft pearl white / muted light slate */
+    line-height: 1.6;
+}
+
+/* Right Half: Google Login */
+.login-right {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+}
+
+.auth-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
-    max-width: 400px;
-    text-align: center;
-}
-
-h1 {
-    font-size: 24px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: #0f172a;
-}
-
-p {
-    font-size: 14px;
-    color: #64748b;
-    margin-bottom: 24px;
+    max-width: 320px;
 }
 
 .g_id_signin {
     display: flex;
     justify-content: center;
-    margin-top: 16px;
+    width: 100%;
 }
 
 #errorMsg {
-    margin-top: 16px;
-    font-size: 13px;
-    color: #dc2626;
+    margin-top: 20px;
+    font-size: 14px;
+    color: #fca5a5; /* Soft warning red optimized for dark mode */
+    text-align: center;
 }
