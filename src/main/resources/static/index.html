@@ -4,23 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
-    <!-- Google Identity Services -->
     <link rel="stylesheet" href="index.css">
+    <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome</h1>
-        <p>Please sign in to access the Printer Cost Estimator.</p>
-
-        <!-- Google Sign-In Component (Paste your Client ID here too) -->
-        <div id="g_id_onload"
-             data-client_id="886373325461-blnvf31hpc3gq4oipa7b69csd9k6i7fv.apps.googleusercontent.com"
-             data-callback="handleCredentialResponse">
+    <!-- The main wrapper that splits the screen -->
+    <div class="split-layout">
+        
+        <!-- Left Half -->
+        <div class="left-side">
+            <h1>Welcome</h1>
+            <p>Please sign in to access the Printer Cost Estimator.</p>
         </div>
-        <div class="g_id_signin" data-type="standard"></div>
 
-        <p id="errorMsg" style="color: red;"></p>
+        <!-- Right Half -->
+        <div class="right-side">
+            <!-- The Card -->
+            <div class="login-card">
+                <div class="sign_in"><h1>sign in</h1></div>
+                <div id="g_id_onload"
+                     data-client_id="886373325461-blnvf31hpc3gq4oipa7b69csd9k6i7fv.apps.googleusercontent.com"
+                     data-callback="handleCredentialResponse">
+                </div>
+                <div class="g_id_signin" data-type="standard"></div>
+                <p id="errorMsg"></p>
+            </div>
+        </div>
+
     </div>
     
     <script src="index.js"></script>

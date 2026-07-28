@@ -4,75 +4,107 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Ink Cost Estimator</title>
-        <!-- <link rel="stylesheet" href="style.css"> -->
-         <link rel="stylesheet" href="program.css">
+        <link rel="stylesheet" href="program.css">
     </head>
     <body>
         <div class="container">
+            <!-- Absolute Top Right Logout Button -->
+            <button type="button" id="logoutButton">Logout</button>
+
             <h1>Ink Cost Estimator</h1>
+            
             <div>
                 <form id="inkCostForm">
+                    
+                    <!-- WRAPPER FOR 2 COLUMNS -->
+                    <div class="form-columns">
+                        
+                        <!-- LEFT SIDE -->
+                        <div class="left-column">
+                            <label for="printer_type">Printer Type:</label>
+                            <select id="printer_type" name="printer_type">
+                                <option value="inkjet">Inkjet</option>
+                                <option value="laser">Laser</option>
+                            </select>
+                            
+                            <label for="covarage_percentage">ISO Coverage %:</label>
+                            <input type="number" id="covarage_percentage" value="5" name="covarage_percentage" title='The percentage of the page that will be covered by ink according to ISO standards specified by the manufacturer' placeholder="Coverage percentage" required>
 
-                    <label for="printer_type">Printer Type:</label>
-                    <select id="printer_type" name="printer_type">
-                        <option value="inkjet">Inkjet</option>
-                        <option value="laser">Laser</option>
-                    </select>
-                    <label for="covarage_percentage">ISO Coverage %:</label>
-                    <input type="number" id="covarage_percentage" value="5" name="covarage_percentage" title = 'The percentage of the page that will be covered by ink according to ISO standards specified by the manufacturer' placeholder="Coverage percentage" required>
+                            <label for="color_capability">Printer Color Capability:</label>
+                            <select id="color_capability" name="color_capability">
+                                <option value="color">Full Color (CMYK)</option>
+                                <option value="Monochrome">Monochrome (Black & White)</option>
+                            </select>
 
+                            <div id="colorType">
+                                <h3>Are you printing in black & white or full color?</h3>
+                                <select id="colorTypeSelect" name="colorTypeSelect">
+                                    <option value="fullColor">Full Color</option>
+                                    <option value="Monochrome">Black & White</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <h3>Cost per paper</h3>
+                                <input type="number" id="paperCost" name="paperCost" placeholder="Price" title="price of the printing paper you are going to use" required>
+                            </div>
+                        </div>
 
-                    <label for="color_capability">Printer Color Capability:</label>
-                    <select id="color_capability" name="color_capability">
-                        <option value="color">Full Color (CMYK)</option>
-                        <option value="Monochrome">Monochrome (Black & White)</option>
-                    </select>
+                        <!-- RIGHT SIDE -->
+                        <div class="right-column">
+                            <div id="monochrome">
+                                <h3>Black Cartridge</h3>
+                                <!-- Side-by-side inputs -->
+                                <div class="input-row">
+                                    <input type="number" id="monochrome_cost" name="monochrome_cost" placeholder="Price" required>
+                                    <input type="number" id="monochrome_yield" name="monochrome_yield" title="how many papers can a single catridge be used for?" placeholder="Yield" required>
+                                </div>
+                            </div>
 
-                    <div id="monochrome">
-                        <h3>Black Cartridge</h3>
-                        <input type="number" id="monochrome_cost" name="monochrome_cost" placeholder="Price" required>
-                        <input type="number" id="monochrome_yield" name="monochrome_yield" title="how many papers can a single catridge be used for?" placeholder="Yield" required>
-                    </div>
-
-                    <div id="full_color">
-                        <h3>Color Cartridges</h3>
-        
-                        <label>Cyan:</label>
-                        <input type="number" id="cyanPrice" placeholder="Price" >
-                        <input type="number" id="cyanYield" title="how many papers can a single catridge be used for?" placeholder="Yield" >
-
-                        <label>Magenta:</label>
-                        <input type="number" id="magentaPrice" placeholder="Price" >
-                        <input type="number" id="magentaYield" title="how many papers can a single catridge be used for?" placeholder="Yield" >
-
-                        <label>Yellow:</label>
-                        <input type="number" id="yellowPrice" placeholder="Price" >
-                        <input type="number" id="yellowYield" title="how many papers can a single catridge be used for?" placeholder="Yield" >
-                    </div>
-                    <div id="colorType">
-                        <h3>Are you printing in black & white or full color?</h3>
-                        <select id="colorTypeSelect" name="colorTypeSelect">
-                            <option value="fullColor">Full Color</option>
-                            <option value="Monochrome">Black & White</option>
-                        </select>
-                    </div>
-                    <div>
-                        <h3>cost per paper</h3>
-                        <input type="number" id="paperCost" name="paperCost" placeholder="Price" title="price of the printing paper you are going to use" required>
-                    </div>
+                            <div id="full_color">
+                                <h3>Color Cartridges</h3>
                 
-                    <button type="submit">save</button>
-                    <button type="button" id="updateButton">update</button>
-                    <button type="button" id="clear_settings">Clear Settings</button>
-                    <span id="settingsStatus"></span>
-                    <button type="button" id="logoutButton" style="background-color: #ff4d4d; color: white;">Logout</button>
+                                <label>Cyan:</label>
+                                <!-- Side-by-side inputs -->
+                                <div class="input-row">
+                                    <input type="number" id="cyanPrice" placeholder="Price" >
+                                    <input type="number" id="cyanYield" title="how many papers can a single catridge be used for?" placeholder="Yield" >
+                                </div>
+
+                                <label>Magenta:</label>
+                                <!-- Side-by-side inputs -->
+                                <div class="input-row">
+                                    <input type="number" id="magentaPrice" placeholder="Price" >
+                                    <input type="number" id="magentaYield" title="how many papers can a single catridge be used for?" placeholder="Yield" >
+                                </div>
+
+                                <label>Yellow:</label>
+                                <!-- Side-by-side inputs -->
+                                <div class="input-row">
+                                    <input type="number" id="yellowPrice" placeholder="Price" >
+                                    <input type="number" id="yellowYield" title="how many papers can a single catridge be used for?" placeholder="Yield" >
+                                </div>
+                            </div>
+                        </div>
+                    </div> <!-- End of Form Columns -->
+                
+                    <!-- BUTTONS AT THE BOTTOM -->
+                    <div class="form-actions">
+                        <button type="submit">save</button>
+                        <button type="button" id="updateButton">update</button>
+                        <button type="button" id="clear_settings">Clear Settings</button>
+                        <span id="settingsStatus"></span>
+                    </div>
                 </form>
+
                 <hr>
+                
                 <form id="uploadForm">
                     <h3>Upload PDF for Cost Estimation</h3>
                     <input type="file" id="pdfFileInput" accept="application/pdf" required>
                     <button type="submit">Analyze PDF</button>
                 </form>
+                
                 <hr>
 
                 <div id="uploadStatus"></div>
