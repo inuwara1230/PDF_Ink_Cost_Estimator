@@ -46,7 +46,7 @@
                             
                             <div>
                                 <h3>Cost per paper</h3>
-                                <input type="number" id="paperCost" name="paperCost" placeholder="Price" title="price of the printing paper you are going to use" required>
+                                <input type="number" id="paperCost" min="0" step="any" name="paperCost" placeholder="Price" title="price of the printing paper you are going to use" required>
                             </div>
                         </div>
 
@@ -56,8 +56,8 @@
                                 <h3>Black Cartridge</h3>
                                 <!-- Side-by-side inputs -->
                                 <div class="input-row">
-                                    <input type="number" id="monochrome_cost" name="monochrome_cost" placeholder="Price" required>
-                                    <input type="number" id="monochrome_yield" name="monochrome_yield" title="how many papers can a single catridge be used for?" placeholder="Yield" required>
+                                    <input type="number" id="monochrome_cost" min="0" step="any" name="monochrome_cost" placeholder="Price" required>
+                                    <input type="number" id="monochrome_yield" min="0" step="any" name="monochrome_yield" title="how many papers can a single catridge be used for?" placeholder="Yield" required>
                                 </div>
                             </div>
 
@@ -67,22 +67,22 @@
                                 <label>Cyan:</label>
                                 <!-- Side-by-side inputs -->
                                 <div class="input-row">
-                                    <input type="number" id="cyanPrice" placeholder="Price" >
-                                    <input type="number" id="cyanYield" title="how many papers can a single catridge be used for?" placeholder="Yield" >
+                                    <input type="number" id="cyanPrice" min="0" step="any" placeholder="Price" >
+                                    <input type="number" id="cyanYield" min="0" step="any" title="how many papers can a single catridge be used for?" placeholder="Yield" >
                                 </div>
 
                                 <label>Magenta:</label>
                                 <!-- Side-by-side inputs -->
                                 <div class="input-row">
-                                    <input type="number" id="magentaPrice" placeholder="Price" >
-                                    <input type="number" id="magentaYield" title="how many papers can a single catridge be used for?" placeholder="Yield" >
+                                    <input type="number" id="magentaPrice" min="0" step="any" placeholder="Price" >
+                                    <input type="number" id="magentaYield" min="0" step="any" title="how many papers can a single catridge be used for?" placeholder="Yield" >
                                 </div>
 
                                 <label>Yellow:</label>
                                 <!-- Side-by-side inputs -->
                                 <div class="input-row">
-                                    <input type="number" id="yellowPrice" placeholder="Price" >
-                                    <input type="number" id="yellowYield" title="how many papers can a single catridge be used for?" placeholder="Yield" >
+                                    <input type="number" id="yellowPrice" min="0" step="any" placeholder="Price" >
+                                    <input type="number" id="yellowYield" min="0" step="any" title="how many papers can a single catridge be used for?" placeholder="Yield" >
                                 </div>
                             </div>
                         </div>

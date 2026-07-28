@@ -136,7 +136,7 @@ button[type="submit"] {
 #settingsStatus, #uploadStatus {
     display: inline-block;
     margin-top: 12px;
-    color: #34d399; 
+    color: #ecedec; 
     font-weight: 500;
 }
 

@@ -191,7 +191,7 @@ public class DocumentController {
             System.out.println(inkUsageMessage);
             System.out.println("Processing Time: " + processingTime + " s");
 
-            emitter.send(fileSizeMessage +"#Pages: " + totalPages + "\n" 
+            emitter.send(fileSizeMessage +" | # of Pages: " + totalPages + "\n" 
              + inkUsageMessage + "\n Processing Time: " +
               processingTime + " s \n" + inkCostMessage + "\n" + paperCostMessage + "\n" + totalCostMessage);
             
