@@ -10,15 +10,15 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 
 import org.apache.pdfbox.rendering.PDFRenderer;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+//import org.springframework.http.ResponseEntity;
+//import org.springframework.web.bind.annotation.*;
+//import org.springframework.web.multipart.MultipartFile;
 
 import java.awt.image.BufferedImage;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.swing.Renderer;
+//import javax.swing.Renderer;
 
 import java.awt.Color;
 
@@ -186,7 +186,7 @@ public class DocumentController {
 
             String inkUsageMessage = String.format("Total Ink Usage - Cyan: %.2f%%, Magenta: %.2f%%, Yellow: %.2f%%, Black: %.2f%%",
                     totalCyan, totalMagenta, totalYellow, totalBlack);
-            //----Pass the 'file' to Apache PDFBox for rasterization and pixel analysis-----
+            
 
             System.out.println(inkUsageMessage);
             System.out.println("Processing Time: " + processingTime + " s");
