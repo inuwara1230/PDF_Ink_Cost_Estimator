@@ -4,12 +4,11 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Ink Cost Estimator</title>
-        <link rel="stylesheet" href="program.css">
+        <link rel="stylesheet" href="index.css">
     </head>
     <body>
         <div class="container">
-            <!-- Absolute Top Right Logout Button -->
-            <button type="button" id="logoutButton">Logout</button>
+            
 
             <h1>Ink Cost Estimator</h1>
             
@@ -56,7 +55,7 @@
                                 <h3>Black Cartridge</h3>
                                 <!-- Side-by-side inputs -->
                                 <div class="input-row">
-                                    <input type="number" id="monochrome_cost" min="0" step="any" name="monochrome_cost" placeholder="Price" required>
+                                    <input type="number" id="monochrome_cost" min="0" step="any" name="monochrome_cost" placeholder="Price"  required>
                                     <input type="number" id="monochrome_yield" min="0" step="any" name="monochrome_yield" title="how many papers can a single catridge be used for?" placeholder="Yield" required>
                                 </div>
                             </div>
@@ -99,19 +98,28 @@
 
                 <hr>
                 
-                <form id="uploadForm">
-                    <h3>Upload PDF for Cost Estimation</h3>
-                    <input type="file" id="pdfFileInput" accept="application/pdf" required>
-                    <button type="submit">Analyze PDF</button>
-                </form>
+                <div class="upload-container">
+                    <div class="upload-section">
+                        <form id="uploadForm">
+                            <h3>Upload PDF for Cost Estimation</h3>
+                            <input type="file" id="pdfFileInput" accept="application/pdf" required>
+                            <button type="submit">Analyze PDF</button>
+                        </form>
+                    </div>
+                    
+                    <div id="uploadStatus" class="status-section">
+                        <!-- Status messages will appear here -->
+                    </div>
+                </div>
+                
                 
                 <hr>
 
-                <div id="uploadStatus"></div>
+                
             </div>
             
             <div id="result"></div>
         </div>
-        <script src="program.js"></script>
+        <script src="index.js"></script>
     </body>
 </html>

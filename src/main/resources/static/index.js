@@ -243,15 +243,3 @@ async function loadSavedSettings() {
 }
 
 // Event Listener: Logout Button
-    document.getElementById('logoutButton').addEventListener('click', async function() {
-        try {
-            await fetch('/api/logout', {
-                method: 'POST'
-            });
-        } catch (error) {
-            console.error('Error during logout request:', error);
-        } finally {
-            // Always redirect to the login page, even if network fails
-            window.location.href = 'index.html';
-        }
-    });

@@ -15,7 +15,7 @@ public class printerSettings {
     @Column(name = "printer_type", nullable = false)
     private String printerType;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id", nullable = true)
     private String userId; 
 
     // Maps to ISO coverage input (default 5)[cite: 3]

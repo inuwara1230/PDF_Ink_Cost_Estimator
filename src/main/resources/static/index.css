@@ -52,10 +52,10 @@ label {
 input[type="number"],
 input[type="file"],
 select {
-    width: 100%;
+    width: 80%;
     padding: 12px;
     margin-bottom: 20px;
-    background-color: #334155; 
+    background-color: #38414c; 
     color: #f1f5f9;
     border: 1px solid #475569; 
     border-radius: 6px;
@@ -72,12 +72,15 @@ input:focus, select:focus {
 .input-row {
     display: flex;
     gap: 15px; /* Adds exactly 15px of space between the two boxes */
+    /*width: 50%;*/
 }
 
 /* Overrides the large bottom margin so the groups stay visually tight */
 .input-row input {
     margin-bottom: 15px; 
 }
+
+
 
 hr {
     border: none;
@@ -120,18 +123,11 @@ button[type="submit"] {
 }
 
 #clear_settings {
-    background-color: #ef4444; 
+    background-color: #951818; 
     color: #ffffff;
 }
 
-#logoutButton {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background-color: #ef4444 !important; 
-    color: #ffffff !important;
-    margin: 0;
-}
+
 
 #settingsStatus, #uploadStatus {
     display: inline-block;
@@ -156,4 +152,27 @@ button[type="submit"] {
     .form-columns {
         grid-template-columns: 1fr;
     }
+}
+
+
+.upload-container {
+    display: flex;         /* Places children side-by-side */
+    flex-wrap: wrap;       /* Allows children to stack if the window gets too small */
+    gap: 20px;             /* Adds breathing room between the form and the status */
+    align-items: flex-start; /* Aligns both boxes to the top */
+}
+
+/* The individual sections inside the container */
+.upload-section, 
+.status-section {
+    flex: 1;               /* Tells both sections to take up equal available space */
+    min-width: 300px;      /* IMPORTANT: If the screen shrinks below 300px, they will stack vertically instead of squishing */
+}
+
+
+.status-section {
+    padding: 15px;
+    /*border: 1px dashed #ccc;
+    border-radius: 5px;*/
+    min-height: 100px;
 }

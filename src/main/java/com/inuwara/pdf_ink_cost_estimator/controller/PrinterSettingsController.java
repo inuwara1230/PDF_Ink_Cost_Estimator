@@ -32,7 +32,7 @@ public class PrinterSettingsController {
         }
 
         try {
-            
+            newSettings.setUserId("default_user"); // Set a default user ID for now
             repository.save(newSettings);
             return ResponseEntity.ok("Settings created successfully!");
         } catch (Exception e) {
@@ -86,6 +86,8 @@ public class PrinterSettingsController {
         
         return repository.findAll().stream().findFirst().map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
+
+
     @DeleteMapping("/clear")
     public ResponseEntity<String> clearSettings() {
         
