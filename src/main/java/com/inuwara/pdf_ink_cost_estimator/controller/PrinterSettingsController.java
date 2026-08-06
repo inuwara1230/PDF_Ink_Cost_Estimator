@@ -5,7 +5,7 @@ import com.inuwara.pdf_ink_cost_estimator.repository.PrinterSettingsRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpSession; // ADD THIS IMPORT
+
 import java.util.Optional;
 
 @RestController
@@ -21,21 +21,18 @@ public class PrinterSettingsController {
     // 1. CREATE Endpoint (Strictly for saving new settings)
     @PostMapping("/create")
     public ResponseEntity<String> createSettings(
-            @RequestBody printerSettings newSettings, 
-            HttpSession session) {
+            @RequestBody printerSettings newSettings
+            ) {
         
-        String userId = (String) session.getAttribute("loggedInUser");
-        if (userId == null) {
-            return ResponseEntity.status(401).body("Error: User is not logged in.");
-        }
+        
         
         // Check if settings already exist
-        if (repository.findByUserId(userId).isPresent()) {
+        if (repository.count() > 0) {
             return ResponseEntity.status(400).body("Settings already exist for this user. Please use Update instead.");
         }
 
         try {
-            newSettings.setUserId(userId);
+            
             repository.save(newSettings);
             return ResponseEntity.ok("Settings created successfully!");
         } catch (Exception e) {
@@ -47,16 +44,13 @@ public class PrinterSettingsController {
     // 2. UPDATE Endpoint (Strictly for modifying existing settings)
     @PutMapping("/update")
     public ResponseEntity<String> updateSettings(
-            @RequestBody printerSettings updatedSettings, 
-            HttpSession session) {
+            @RequestBody printerSettings updatedSettings
+            ) {
         
-        String userId = (String) session.getAttribute("loggedInUser");
-        if (userId == null) {
-            return ResponseEntity.status(401).body("Error: User is not logged in.");
-        }
+        
         
         // Check if settings actually exist to update
-        Optional<printerSettings> existingSettings = repository.findByUserId(userId);
+        Optional<printerSettings> existingSettings = repository.findAll().stream().findFirst();
         if (existingSettings.isEmpty()) {
             return ResponseEntity.status(404).body("No saved settings found to update. Please Save first.");
         }
@@ -87,34 +81,18 @@ public class PrinterSettingsController {
     }
 
     @GetMapping("/get")
-    public ResponseEntity<printerSettings> getSettings(HttpSession session) { // USE HTTPSESSION
-        String userId = (String) session.getAttribute("loggedInUser");
+    public ResponseEntity<printerSettings> getSettings() { // USE HTTPSESSION
         
-        if (userId == null) {
-            return ResponseEntity.status(401).build();
-        }
         
-        return repository.findByUserId(userId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return repository.findAll().stream().findFirst().map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
     @DeleteMapping("/clear")
-    public ResponseEntity<String> clearSettings(HttpSession session) {
-        // 1. Grab the username from the session
-        String userId = (String) session.getAttribute("loggedInUser");
-        
-        // 2. Ensure the user is actually logged in
-        if (userId == null) {
-            return ResponseEntity.status(401).body("Error: User is not logged in.");
-        }
+    public ResponseEntity<String> clearSettings() {
         
         try {
-            // 3. Find the user's settings
-            Optional<printerSettings> existingSettings = repository.findByUserId(userId);
-
-            // 4. If settings exist, delete them from the database
-            if (existingSettings.isPresent()) {
-                repository.delete(existingSettings.get());
+            if (repository.count() > 0) {
+                repository.deleteAll();
+                // 
                 return ResponseEntity.ok("Settings successfully cleared from the database.");
             } else {
                 return ResponseEntity.ok("No saved settings found to clear.");
