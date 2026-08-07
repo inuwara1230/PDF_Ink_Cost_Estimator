@@ -100,10 +100,60 @@
                 
                 <div class="upload-container">
                     <div class="upload-section">
-                        <form id="uploadForm">
-                            <h3>Upload PDF for Cost Estimation</h3>
-                            <input type="file" id="pdfFileInput" accept="application/pdf" required>
-                            <button type="submit">Analyze PDF</button>
+                        <form id="uploadForm" class="job-settings-form">
+                            <h3>PDF Job Settings & Estimation</h3>
+
+                            <!-- STEP 1: Paper Stock Selection -->
+                            <div class="job-step">
+                                <h4>1. Target Paper Size</h4>
+                                <select id="targetPaperSize" name="targetPaperSize">
+                                    <option value="A4">A4 (Standard)</option>
+                                    <option value="A3">A3 (Scaled Up - Double Area)</option>
+                                    <option value="A5">A5 (Scaled Down - Half Area)</option>
+                                    <option value="Legal">Legal</option>
+                                </select>
+                            </div>
+                        
+                            <!-- STEP 2: Imposition & Layout Rules -->
+                            <div class="job-step">
+                                <h4>2. Layout & Sides</h4>
+                                <!-- Leveraging your existing side-by-side flexbox class -->
+                                <div class="input-row">
+                                    <div style="flex: 1;">
+                                        <label for="printMode">Print Mode:</label>
+                                        <select id="printMode" name="printMode">
+                                            <option value="standard">Standard (1-Up)</option>
+                                            <option value="booklet">Booklet (Folded A5)</option>
+                                            <option value="2up">2-Up (2 slides per sheet)</option>
+                                            <option value="4up">4-Up (4 slides per sheet)</option>
+                                        </select>
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <label for="duplexMode">Sides:</label>
+                                        <select id="duplexMode" name="duplexMode">
+                                            <option value="simplex">Single-Sided</option>
+                                            <option value="duplex">Double-Sided</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        
+                            <!-- STEP 3: Page Selection & Color Mapping -->
+                            <div class="job-step">
+                                <h4>3. Custom Page Ranges (Optional)</h4>
+                                <label for="colorPages">Color Pages (e.g., 1, 4-6, 12):</label>
+                                <input type="text" id="colorPages" placeholder="Leave empty to analyze all pages" name="colorPages">
+
+                                <label for="monoPages">Monochrome Pages (e.g., 2-3, 7-11):</label>
+                                <input type="text" id="monoPages" placeholder="Leave empty if none" name="monoPages">
+                            </div>
+
+                            <!-- STEP 4: Upload & Calculate -->
+                            <div class="job-step upload-step">
+                                <h4>4. Upload Document</h4>
+                                <input type="file" id="pdfFileInput" accept="application/pdf" required>
+                                <button type="submit" style="width: 100%; margin-top: 15px;">Analyze PDF & Calculate Job Cost</button>
+                            </div>
                         </form>
                     </div>
                     
@@ -111,11 +161,7 @@
                         <!-- Status messages will appear here -->
                     </div>
                 </div>
-                
-                
                 <hr>
-
-                
             </div>
             
             <div id="result"></div>

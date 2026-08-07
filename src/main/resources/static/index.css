@@ -51,6 +51,7 @@ label {
 /* Base Input Styling */
 input[type="number"],
 input[type="file"],
+input[type="text"],
 select {
     width: 80%;
     padding: 12px;
@@ -137,11 +138,11 @@ button[type="submit"] {
 }
 
 #monochrome, #full_color {
-    background-color: #1e293b; 
+    
     padding: 20px;
     border-radius: 8px;
     margin-bottom: 20px;
-    border: 1px solid #334155;
+   
 }
 
 #colorType {
@@ -175,4 +176,47 @@ button[type="submit"] {
     /*border: 1px dashed #ccc;
     border-radius: 5px;*/
     min-height: 100px;
+}
+
+
+/* --- NEW PDF JOB SETTINGS STYLES --- */
+.job-settings-form {
+     
+    padding: 25px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.job-settings-form h3 {
+    margin-bottom: 20px;
+    color: #f1f5f9;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 10px;
+}
+
+.job-step {
+    margin-bottom: 25px;
+}
+
+.job-step h4 {
+    margin-bottom: 10px;
+    font-size: 15px;
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+/* Force inputs inside the job form to use full width of their container */
+.job-step input[type="text"],
+.job-step select,
+.job-step input[type="file"] {
+    width: 100%; 
+    margin-bottom: 8px;
+}
+
+/* Separator for the final upload button */
+.upload-step {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px dashed #475569;
 }
