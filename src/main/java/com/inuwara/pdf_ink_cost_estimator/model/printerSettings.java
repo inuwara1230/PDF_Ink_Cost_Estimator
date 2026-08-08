@@ -65,8 +65,17 @@ public class printerSettings {
     private String printJobColorType;
 
     // Maps to cost per paper input[cite: 3]
-    @Column(name = "paper_cost", nullable = false)
-    private Double paperCost;
+    @Column(name = "A4_cost", nullable = false)
+    private Double a4Cost;
+
+    @Column(name = "A3_cost", nullable = false)
+    private Double a3Cost;
+
+    @Column(name = "A5_cost", nullable = false)
+    private Double a5Cost;
+
+    @Column(name = "legal_cost", nullable = false)
+    private Double legalCost;
 
     // --- Getters and Setters ---
     
@@ -112,6 +121,15 @@ public class printerSettings {
     public String getPrintJobColorType() { return printJobColorType; }
     public void setPrintJobColorType(String printJobColorType) { this.printJobColorType = printJobColorType; }
 
-    public Double getPaperCost() { return paperCost; }
-    public void setPaperCost(Double paperCost) { this.paperCost = paperCost; }
+    public Double getA4Cost() { return a4Cost; }
+    public void setA4Cost(Double a4Cost) { this.a4Cost = a4Cost; }
+
+    public Double getA3Cost() { return a3Cost; }
+    public void setA3Cost(Double a3Cost) { this.a3Cost = a3Cost; }
+
+    public Double getA5Cost() { return a5Cost; }
+    public void setA5Cost(Double a5Cost) { this.a5Cost = a5Cost; }
+
+    public Double getLegalCost() { return legalCost; }
+    public void setLegalCost(Double legalCost) { this.legalCost = legalCost; }
 }

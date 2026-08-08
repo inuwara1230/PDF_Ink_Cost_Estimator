@@ -75,6 +75,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = fileInput.files[0];
         const colorMode = document.getElementById('colorTypeSelect').value;
 
+        //methanin pdf printer job details ganna ona
+
+        const target = document.getElementById('targetPaperSize').value;
+        const layout = document.getElementById('printMode').value;
+        const sides = document.getElementById('duplexMode').value;
+        const color_page_range = document.getElementById('colorPages').value;
+        const monochrome_page_range = document.getElementById('monoPages').value;
+
         if (!file) {
             document.getElementById('uploadStatus').innerText = 'Please select a PDF file.';
             return;
@@ -98,11 +106,22 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('pdfDocument', file);
         formData.append('colorCapability', colorMode);
         formData.append('jobID', jobID);
-        formData.append('paperCost', document.getElementById('paperCost').value || '0');
+        //formData.append('paperCost', document.getElementById('paperCost').value || '0');
 
         formData.append('blackPrice', document.getElementById('monochrome_cost').value || '0');
         formData.append('blackYield', document.getElementById('monochrome_yield').value || '1');
         formData.append('isoCoverage', document.getElementById('covarage_percentage').value || '5');
+
+        formData.append('a4Cost', document.getElementById('A4').value || '0');
+        formData.append('a3Cost', document.getElementById('A3').value || '0');
+        formData.append('a5Cost', document.getElementById('A5').value || '0');
+        formData.append('legalCost', document.getElementById('Legal').value || '0');
+
+        formData.append('targetPaperSize', target);
+        formData.append('printLayout', layout);
+        formData.append('duplexMode', sides);
+        formData.append('colorPageRange', color_page_range);
+        formData.append('monochromePageRange', monochrome_page_range);
 
         if (colorMode !== 'Monochrome') {
             formData.append('cyanPrice', document.getElementById('cyanPrice').value || '0');
@@ -155,7 +174,11 @@ function getSettingsFormData() {
         yellowYield: document.getElementById('yellowYield').value ? parseInt(document.getElementById('yellowYield').value, 10) : null,
         
         printJobColorType: document.getElementById('colorTypeSelect').value,
-        paperCost: parseFloat(document.getElementById('paperCost').value) || 0.0
+        
+        a4Cost: parseFloat(document.getElementById('A4').value) || 0.0,
+        a3Cost: parseFloat(document.getElementById('A3').value) || 0.0,
+        a5Cost: parseFloat(document.getElementById('A5').value) || 0.0,
+        legalCost: parseFloat(document.getElementById('Legal').value) || 0.0,
     };
 }
 
@@ -180,9 +203,6 @@ async function sendSettingsRequest(url, method, successMessage) {
             return; // Stops the function from executing the fetch request
         }
     }
-
-
-
 
     try {
         const response = await fetch(url, {
@@ -232,8 +252,12 @@ async function loadSavedSettings() {
             document.getElementById('yellowYield').value = data.yellowYield ?? '';
             
             document.getElementById('colorTypeSelect').value = data.printJobColorType || 'fullColor';
-            document.getElementById('paperCost').value = data.paperCost ?? '';
-            
+
+            document.getElementById('A4').value = data.a4Cost ?? '';
+            document.getElementById('A3').value = data.a3Cost ?? '';
+            document.getElementById('A5').value = data.a5Cost ?? '';
+            document.getElementById('Legal').value = data.legalCost ?? '';
+
             // Sync visible sections according to restored color capability
             document.getElementById('color_capability').dispatchEvent(new Event('change'));
         }

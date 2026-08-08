@@ -43,9 +43,32 @@
                                 </select>
                             </div>
                             
-                            <div>
-                                <h3>Cost per paper</h3>
-                                <input type="number" id="paperCost" min="0" step="any" name="paperCost" placeholder="Price" title="price of the printing paper you are going to use" required>
+                            <div id="paperCostdiv">
+                                <h3>Paper Costs</h3>
+
+                                <!-- This container holds all the groups side-by-side -->
+                                <div class="paper-inputs-row">
+
+                                    <div class="input-group">
+                                        <label for="A4">A4:</label>
+                                        <input type="number" id="A4" min="0" step="any" name="paperCost" placeholder="Price" required>
+                                    </div>
+
+                                    <div class="input-group">
+                                        <label for="A3">A3:</label>
+                                        <input type="number" id="A3" min="0" step="any" name="paperCost" placeholder="Price" required>
+                                    </div>
+
+                                    <div class="input-group">
+                                        <label for="A5">A5:</label>
+                                        <input type="number" id="A5" min="0" step="any" name="paperCost" placeholder="Price" required>
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="Legal">Legal:</label>
+                                        <input type="number" id="Legal" min="0" step="any" name="paperCost" placeholder="Price" required>
+                                    </div>
+
+                                </div>
                             </div>
                         </div>
 

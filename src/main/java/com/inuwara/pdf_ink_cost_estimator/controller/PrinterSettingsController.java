@@ -70,7 +70,11 @@ public class PrinterSettingsController {
             settingsToUpdate.setYellowPrice(updatedSettings.getYellowPrice());
             settingsToUpdate.setYellowYield(updatedSettings.getYellowYield());
             settingsToUpdate.setPrintJobColorType(updatedSettings.getPrintJobColorType());
-            settingsToUpdate.setPaperCost(updatedSettings.getPaperCost());
+            
+            settingsToUpdate.setA4Cost(updatedSettings.getA4Cost());
+            settingsToUpdate.setA3Cost(updatedSettings.getA3Cost());
+            settingsToUpdate.setA5Cost(updatedSettings.getA5Cost());
+            settingsToUpdate.setLegalCost(updatedSettings.getLegalCost());
 
             repository.save(settingsToUpdate);
             return ResponseEntity.ok("Settings updated successfully!");
@@ -81,7 +85,7 @@ public class PrinterSettingsController {
     }
 
     @GetMapping("/get")
-    public ResponseEntity<printerSettings> getSettings() { // USE HTTPSESSION
+    public ResponseEntity<printerSettings> getSettings() { 
         
         
         return repository.findAll().stream().findFirst().map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());

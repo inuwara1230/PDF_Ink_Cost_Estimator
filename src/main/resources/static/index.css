@@ -220,3 +220,31 @@ button[type="submit"] {
     padding-top: 20px;
     border-top: 1px dashed #475569;
 }
+
+#paperCostdiv {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    width: 80%;
+    
+}
+
+/* Keeps the A4, A3, and A5 groups in a horizontal line */
+.paper-inputs-row {
+    display: flex;
+    flex-direction: row;
+    gap: 20px; /* Adjust this to change the spacing between the paper types */
+}
+
+/* Stacks the label and input vertically */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px; /* Adds a small breathing room between the label and the input box */
+}
+
+/* Optional: Make the labels stand out a bit more */
+.input-group label {
+    font-weight: bold;
+}
