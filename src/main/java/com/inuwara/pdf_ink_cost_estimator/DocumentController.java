@@ -127,6 +127,8 @@ public class DocumentController {
             int totalPages = document.getNumberOfPages();
             emitter.send("analyzing " + totalPages + " pages of the PDF file...");
             //System.out.println("Received file: " + document.getOriginalFilename()+ "size : " + fileSizeMessage);
+            System.out.println("debug | " + targetPaperSize + " | " + printLayout + " | " + duplexMode );
+            System.out.println("iso coverage: " + isoCoverage);
 
             
             List<List<Integer>> printJobs = parsePrintJobs(monochromePageRange, colorPageRange, totalPages);
@@ -142,18 +144,16 @@ public class DocumentController {
             // Print the raw strings coming from the frontend
             System.out.println("DEBUG - Raw Mono String from Frontend: " + monochromePageRange);
             System.out.println("DEBUG - Raw Color String from Frontend: " + colorPageRange);
-
             // Then run your parser
             
-
             // Print the resulting lists separately
-            System.out.println("DEBUG - Parsed Mono List: " + printJobs.get(0));
-            System.out.println("DEBUG - Parsed Color List: " + printJobs.get(1));
+            System.out.println("DEBUG - Parsed Mono List: " + monoPages);
+            System.out.println("DEBUG - Parsed Color List: " + colorPages);
 
 
             
             System.out.println("Total # pages: " + allPages.size() + " | Monochrome: " + monoPages.size() + " | Color: " + colorPages.size());
-            final double standard_A4_Area = 500990.0; // Standard US Letter size in square inches
+            final double standard_A4_Area = 501135.0; 
             double totalAreaMultiplier = 0.0;
 
             double totalCyan = 0.0;
@@ -166,50 +166,61 @@ public class DocumentController {
             double yellowCost = 0.0;
             double blackCost = 0.0;
 
+            double accumulated_pdf_page_area = 0.0;
+            double total_pdf_pages = allPages.size();
+
             for(Integer i : allPages) {
-                emitter.send("Processing Page Number : " + (i) + " | Monochrome: " + monoPages.contains(i) + " | Color: " + colorPages.contains(i));
+
+                boolean isMono = monoPages.contains(i);
+                boolean isColor = colorPages.contains(i);
+                
+                emitter.send("Processing Page Number : " + (i) + " | Monochrome: " + isMono + " | Color: " + isColor);
 
                 PDPage page = document.getPage(i-1); // PDFBox uses 0-based indexing
                 PDRectangle mediaBox = page.getMediaBox();
                 double pageArea =  mediaBox.getWidth() * mediaBox.getHeight() ;
+                accumulated_pdf_page_area += pageArea;
+
                 totalAreaMultiplier = (pageArea / standard_A4_Area);
-                BufferedImage image =renderer.renderImageWithDPI(i-1, 150); // Render at 150 DPI
+
+
+                // Lowering DPI to 50 or 72 is highly recommended. 
+                // Color coverage percentages remain almost identical, but it processes 9x faster than 150 DPI.
+                BufferedImage image = renderer.renderImageWithDPI(i - 1, 150); 
 
                 int width = image.getWidth();
                 int height = image.getHeight();  
-
                 double totalPixels = width * height;
 
                 double pageCyan = 0.0, pageMagenta = 0.0, pageYellow = 0.0, pageBlack = 0.0;
 
-                for (int x=0;x<width;x++){
-                    for(int y=0;y<height;y++){
-                        Color pixelColor = new Color(image.getRGB(x,y));
-                        // Normalize RGB values to [0,1]
-                        double r = pixelColor.getRed() / 255.0;
-                        double g = pixelColor.getGreen() / 255.0;
-                        double b = pixelColor.getBlue() / 255.0;
-                        if(monoPages.contains(i)){
-                            double luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-                            double k = 1 - luminance;
-                            pageBlack += k;
-                        }else if(colorPages.contains(i)){
-                            double k = 1 - Math.max(r, Math.max(g, b));
-                            double c=0, m=0, y1=0;
-                            if (k<1){
-                                c = (1 - r - k) / (1 - k);
-                                m = (1 - g - k) / (1 - k);
-                                y1 = (1 - b - k) / (1 - k);
-                            }
-                            pageCyan += c;
-                            pageMagenta += m;
-                            pageYellow += y1;
-                            pageBlack += k;
-                        }
+                // Grab all pixels in one pass into a 1D array
+                int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
 
+                for (int pixel : pixels) {
+                    // Fast bitwise extraction of RGB (skipping alpha channel)
+                    double r = ((pixel >> 16) & 0xff) / 255.0;
+                    double g = ((pixel >> 8) & 0xff) / 255.0;
+                    double b = (pixel & 0xff) / 255.0;
+                
+                    if (isMono) {
+                        double luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+                        pageBlack += (1.0 - luminance);
+                    } else if (isColor) {
+                        double k = 1.0 - Math.max(r, Math.max(g, b));
+
+                        if (k < 1.0) {
+                            pageCyan += (1.0 - r - k) / (1.0 - k);
+                            pageMagenta += (1.0 - g - k) / (1.0 - k);
+                            pageYellow += (1.0 - b - k) / (1.0 - k);
+                        }
+                        pageBlack += k;
                     }
                 }
-                if(colorPages.contains(i)){
+
+                // Clear the image from memory explicitly to prevent heap saturation
+                image.flush();
+                if(isColor){
                     totalCyan += (pageCyan / totalPixels)*100*totalAreaMultiplier;
                     totalMagenta += (pageMagenta / totalPixels)*100*totalAreaMultiplier;
                     totalYellow += (pageYellow / totalPixels)*100*totalAreaMultiplier;
@@ -218,19 +229,42 @@ public class DocumentController {
 
             }
 
-            cyanCost = totalCyan * (cyanPrice/(cyanYield*isoCoverage)); // Assuming $0.05 per % of cyan used
-            magentaCost = totalMagenta * (magentaPrice/(magentaYield*isoCoverage));
-            yellowCost = totalYellow * (yellowPrice/(yellowYield*isoCoverage));
-            blackCost = totalBlack * (blackPrice/(blackYield*isoCoverage));
+
+
+            double final_pdf_page_area = accumulated_pdf_page_area / total_pdf_pages;
+            double ink_cost_multiplier = 0.0;
+
+            
+            double targetPaperArea = switch (targetPaperSize) {
+                
+                case "A3" -> 1002270.0;
+                case "A5" -> 250567.0;
+                case "Legal" -> 604800.0;
+                default -> 501135.0; // Default to A4 if unknown
+            };
+            ink_cost_multiplier = targetPaperArea / final_pdf_page_area;
+
+    
+
+            cyanCost = totalCyan *ink_cost_multiplier* (cyanPrice/(cyanYield*isoCoverage)); 
+            magentaCost = totalMagenta *ink_cost_multiplier* (magentaPrice/(magentaYield*isoCoverage));
+            yellowCost = totalYellow *ink_cost_multiplier* (yellowPrice/(yellowYield*isoCoverage));
+            blackCost = totalBlack *ink_cost_multiplier* (blackPrice/(blackYield*isoCoverage));
+
+            System.out.println("DEBUG | Final PDF Page Area: " + final_pdf_page_area + " | Ink Cost Multiplier: " + ink_cost_multiplier);
+            //++++++++++++++++++++++++++++++++++++++++++++++++++++
+            //####################### print layout and and duplex mode cost calculations can be added here #######################
+            //++++++++++++++++++++++++++++++++++++++++++++++++++++
 
             double totalInkCost = cyanCost + magentaCost + yellowCost + blackCost;
-            String inkCostMessage = String.format("Total Ink Cost: %.2f (Cyan: %.2f, Magenta: %.2f, Yellow: %.2f, Black: %.2f)", totalInkCost, cyanCost, magentaCost, yellowCost, blackCost);
+            //System.out.println("cost without multiplieng: " + totalInkCost/ink_cost_multiplier);
+            String inkCostMessage = String.format("Total Ink Cost after scalling: %.2f (Cyan: %.2f, Magenta: %.2f, Yellow: %.2f, Black: %.2f)", totalInkCost, cyanCost, magentaCost, yellowCost, blackCost);
             
             //double totalPaperCost = 2 * totalPages;
-            String paperCostMessage = String.format("yet to be implemented");
+            String paperCostMessage = String.format("paper cost yet to be implemented");
 
             double totalCost = totalInkCost; //+ totalPaperCost;
-            String totalCostMessage = String.format("Total Cost: %.2f", totalCost);
+            String totalCostMessage = String.format("Total Cost after scalling: %.2f", totalCost);
 
             long endTime = System.currentTimeMillis();
             long processingTime = (endTime - startTime)/1000;
@@ -248,7 +282,7 @@ public class DocumentController {
               processingTime + " s \n" 
               + inkCostMessage + "\n" 
               + paperCostMessage + "\n"
-               + totalCostMessage);
+               + totalCostMessage );
             
 
         } catch (Exception e) {
