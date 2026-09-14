@@ -167,7 +167,7 @@ public class DocumentController {
             double blackCost = 0.0;
 
             for(Integer i : allPages) {
-                emitter.send("Processing page " + (i) + " of " + allPages.size() + "...");
+                emitter.send("Processing Page Number : " + (i) + " | Monochrome: " + monoPages.contains(i) + " | Color: " + colorPages.contains(i));
 
                 PDPage page = document.getPage(i-1); // PDFBox uses 0-based indexing
                 PDRectangle mediaBox = page.getMediaBox();
@@ -242,9 +242,13 @@ public class DocumentController {
             System.out.println(inkUsageMessage);
             System.out.println("Processing Time: " + processingTime + " s");
 
-            emitter.send(fileSizeMessage +" | # of Pages: " + allPages.size() + "/" + totalPages + "\n" 
+            emitter.send(fileSizeMessage +" | Analyzed Number of Pages: " + allPages.size() + "/" + totalPages + "\n" 
+            + "Monochrome Pages: " + monoPages.size() + " | Color Pages: " + colorPages.size() + "\n"
              + inkUsageMessage + "\n Processing Time: " +
-              processingTime + " s \n" + inkCostMessage + "\n" + paperCostMessage + "\n" + totalCostMessage);
+              processingTime + " s \n" 
+              + inkCostMessage + "\n" 
+              + paperCostMessage + "\n"
+               + totalCostMessage);
             
 
         } catch (Exception e) {

@@ -248,3 +248,66 @@ button[type="submit"] {
 .input-group label {
     font-weight: bold;
 }
+
+
+.tab-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ccc;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    border: none;
+    background-color: #f1f1f1;
+    cursor: pointer;
+    font-size: 16px;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+}
+
+.tab-btn.active {
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+}
+
+.tab-content {
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+
+
+/* Aligns the title to the left and logo to the right */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+/* Constrains the logo size so it doesn't break the layout */
+.shop-logo {
+    max-width: 8%;
+    max-height: 8%;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.logo-upload-section p {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+#logoStatus {
+    display: block;
+    margin-top: 10px;
+    font-weight: bold;
+}

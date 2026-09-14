@@ -266,4 +266,61 @@ async function loadSavedSettings() {
     }
 }
 
-// Event Listener: Logout Button
+function switchTab(event, tabId) {
+    // Hide all tab content sections
+    const contents = document.querySelectorAll('.tab-content');
+    contents.forEach(tab => tab.style.display = 'none');
+
+    // Remove active class from all tab buttons
+    const buttons = document.querySelectorAll('.tab-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+
+    // Display selected tab and set button as active
+    document.getElementById(tabId).style.display = 'block';
+    event.currentTarget.classList.add('active');
+}
+
+async function uploadLogo() {
+    const fileInput = document.getElementById('logoInput');
+    const statusText = document.getElementById('logoStatus');
+    
+    if (fileInput.files.length === 0) {
+        statusText.innerText = "Please select a file first.";
+        statusText.style.color = "red";
+        return;
+    }
+
+    // Package the file for the backend
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    try {
+        statusText.innerText = "Uploading...";
+        statusText.style.color = "blue";
+        
+        // Send to the Spring Boot Controller
+        const response = await fetch('/api/logo/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            statusText.innerText = "Logo updated successfully!";
+            statusText.style.color = "green";
+            
+            // Reload the image by appending a timestamp (bypasses browser caching)
+            const logoImg = document.getElementById('shopLogo');
+            logoImg.src = `/api/logo?t=${new Date().getTime()}`;
+            
+            // Clear the input box
+            fileInput.value = "";
+        } else {
+            const errorMsg = await response.text();
+            statusText.innerText = `Failed: ${errorMsg}`;
+            statusText.style.color = "red";
+        }
+    } catch (error) {
+        statusText.innerText = "Network error occurred.";
+        statusText.style.color = "red";
+    }
+}
