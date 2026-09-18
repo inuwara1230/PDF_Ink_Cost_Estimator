@@ -252,19 +252,48 @@ public class DocumentController {
             blackCost = totalBlack *ink_cost_multiplier* (blackPrice/(blackYield*isoCoverage));
 
             System.out.println("DEBUG | Final PDF Page Area: " + final_pdf_page_area + " | Ink Cost Multiplier: " + ink_cost_multiplier);
+
+            double totalInkCost = cyanCost + magentaCost + yellowCost + blackCost; //after scaling with target paper size
             //++++++++++++++++++++++++++++++++++++++++++++++++++++
+            int N_up = switch (printLayout) {
+                case "standard" -> 1;
+                case "booklet" -> 2;
+                case "2up" -> 2;
+                case "4up" -> 4;
+                default -> 1; // Default to single-sided if unknown
+            }; // Example value, replace with actual value
+            double ink_cost_after_N_up = totalInkCost / N_up;
+
+            int duplexFactor = "duplex".equalsIgnoreCase(duplexMode) ? 2 : 1;
+            
+            int numberOfpagesAfterNup = (int) Math.ceil((double) allPages.size() / (N_up*duplexFactor));
+
+            double totalPaperCost = 0.0;
+            switch (targetPaperSize) {
+                case "A3" -> totalPaperCost = numberOfpagesAfterNup * a3Cost;
+                case "A5" -> totalPaperCost = numberOfpagesAfterNup * a5Cost;
+                case "Legal" -> totalPaperCost = numberOfpagesAfterNup * legalCost;
+                default -> totalPaperCost = numberOfpagesAfterNup * a4Cost; // Default to A4 if unknown
+            }
             //####################### print layout and and duplex mode cost calculations can be added here #######################
             //++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-            double totalInkCost = cyanCost + magentaCost + yellowCost + blackCost;
+            
             //System.out.println("cost without multiplieng: " + totalInkCost/ink_cost_multiplier);
             String inkCostMessage = String.format("Total Ink Cost after scalling: %.2f (Cyan: %.2f, Magenta: %.2f, Yellow: %.2f, Black: %.2f)", totalInkCost, cyanCost, magentaCost, yellowCost, blackCost);
             
             //double totalPaperCost = 2 * totalPages;
-            String paperCostMessage = String.format("paper cost yet to be implemented");
+            
+            String inkCostAfterNupMessage = String.format("Ink Cost after N-up: %.2f", ink_cost_after_N_up);
 
-            double totalCost = totalInkCost; //+ totalPaperCost;
-            String totalCostMessage = String.format("Total Cost after scalling: %.2f", totalCost);
+            String pageMassage =String.format("Number of Pages after N-up: %d", numberOfpagesAfterNup);
+
+            String paperCostMessage = String.format("Total Paper Cost: %.2f", totalPaperCost);
+
+
+            String final_cost_message = String.format("Final Cost: %.2f", ink_cost_after_N_up + totalPaperCost);
+           // double totalCost = totalInkCost; //+ totalPaperCost;
+           // String totalCostMessage = String.format("Total Cost after scalling: %.2f", totalCost);
 
             long endTime = System.currentTimeMillis();
             long processingTime = (endTime - startTime)/1000;
@@ -276,18 +305,22 @@ public class DocumentController {
             System.out.println(inkUsageMessage);
             System.out.println("Processing Time: " + processingTime + " s");
 
-            emitter.send(fileSizeMessage +" | Analyzed Number of Pages: " + allPages.size() + "/" + totalPages + "\n" 
+            emitter.send(fileSizeMessage +" | Number of Pages Analyzed : " + allPages.size() + "/" + totalPages + "\n" 
             + "Monochrome Pages: " + monoPages.size() + " | Color Pages: " + colorPages.size() + "\n"
              + inkUsageMessage + "\n Processing Time: " +
-              processingTime + " s \n" 
+              processingTime + " s \n" +"\n"
               + inkCostMessage + "\n" 
-              + paperCostMessage + "\n"
-               + totalCostMessage );
+              + inkCostAfterNupMessage + "\n"
+                + pageMassage+"\n"
+                +paperCostMessage+"\n"
+                +final_cost_message
+            );
+                //+ totalCostMessage );
             
 
         } catch (Exception e) {
             ///e.printStackTrace();
-            //emitter.completeWithError(e);
+            emitter.completeWithError(e);
         }
     }
 
