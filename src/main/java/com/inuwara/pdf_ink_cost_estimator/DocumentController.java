@@ -1,33 +1,33 @@
 package com.inuwara.pdf_ink_cost_estimator;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
-
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.rendering.PDFRenderer;
-//import org.springframework.http.ResponseEntity;
-//import org.springframework.web.bind.annotation.*;
-//import org.springframework.web.multipart.MultipartFile;
 
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Map;
+import java.io.ByteArrayOutputStream;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-//import javax.swing.Renderer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.List;
-
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.util.StreamUtils;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.awt.Color;
 
 @RestController
@@ -35,9 +35,36 @@ import java.awt.Color;
 public class DocumentController {
 
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
+    
+    // Store finished calculation reports mapped by jobId
+    private final Map<String, CalculationReport> reports = new ConcurrentHashMap<>();
+
+    // Data Transfer Object for Report Generation
+    public static class CalculationReport {
+        public String jobId;
+        public double fileSizeMB;
+        public int totalPages;
+        public int monoPagesCount;
+        public int colorPagesCount;
+        public double cyanUsage, magentaUsage, yellowUsage, blackUsage;
+        public double cyanCost, magentaCost, yellowCost, blackCost;
+        public double totalInkCost;
+        public double inkCostAfterNup;
+        public int numberOfPagesAfterNup;
+        public double totalPaperCost;
+        public double finalCost;
+        public long processingTimeSeconds;
+        public String targetPaperSize;
+        public String printLayout;
+        public String duplexMode;
+        public double costOfASingle_PaperSheet;
+        public String fileName; // Store the original file name for reference
+        public List<Integer> monoPages;
+        public List<Integer> colorPages;
+    }
+
     @GetMapping(value = "/progress/{jobId}", produces = "text/event-stream")
     public SseEmitter streamProgress(@PathVariable String jobId) {
-        // 10-minute timeout for massive files
         SseEmitter emitter = new SseEmitter(600000L); 
         emitters.put(jobId, emitter);
         
@@ -47,9 +74,6 @@ public class DocumentController {
         
         return emitter;
     }
-
-
-
 
     @PostMapping("/upload_pdf")
     public ResponseEntity<String> handlePdfUpload(
@@ -65,72 +89,51 @@ public class DocumentController {
         @RequestParam(value = "magentaYield", defaultValue = "1") double magentaYield,
         @RequestParam(value = "yellowPrice", defaultValue = "0") double yellowPrice,
         @RequestParam(value = "yellowYield", defaultValue = "1") double yellowYield,
-
         @RequestParam(value = "a4Cost", required = false, defaultValue = "0") double a4Cost,
         @RequestParam(value = "a3Cost", required = false, defaultValue = "0") double a3Cost,
         @RequestParam(value = "a5Cost", required = false, defaultValue = "0") double a5Cost,
         @RequestParam(value = "legalCost", required = false, defaultValue = "0") double legalCost,
-
         @RequestParam(value = "targetPaperSize", required = false, defaultValue = "A4") String targetPaperSize,
         @RequestParam(value = "printLayout", required = false, defaultValue = "standard") String printLayout,
         @RequestParam(value = "duplexMode", required = false, defaultValue = "simplex") String duplexMode,
         @RequestParam(value = "colorPageRange", required = false, defaultValue = "") String colorPageRange,
         @RequestParam(value = "monochromePageRange", required = false, defaultValue = "") String monochromePageRange)
-     {
-        // 1. Verify a file was actually sent
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("File is empty.");
-        }
+    {
+        if (file.isEmpty()) return ResponseEntity.badRequest().body("File is empty.");
+        if (!"application/pdf".equals(file.getContentType())) return ResponseEntity.badRequest().body("Only PDF files are allowed.");
 
-        // 2. Verify it is a PDF
-        if (!"application/pdf".equals(file.getContentType())) {
-            return ResponseEntity.badRequest().body("Only PDF files are allowed.");
-        }
-
-        try{
-
+        try {
             double fileSizeInBytes = file.getSize();
+            String fileName = file.getOriginalFilename();
             byte[] fileBytes = file.getBytes();
-            new Thread(() -> processPDFinBackground(fileBytes, colorCapability, jobID,
+            new Thread(() -> processPDFinBackground(fileBytes, fileName, colorCapability, jobID,
                  fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield,
                   magentaPrice, magentaYield, yellowPrice, yellowYield, a4Cost, a3Cost, a5Cost, legalCost,
                 targetPaperSize, printLayout, duplexMode, colorPageRange, monochromePageRange)).start();
             return ResponseEntity.ok("Upload received, processing started...");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("Failed to read file bytes.");
         }
     }
 
-    private void processPDFinBackground(byte[] fileBytes, String colorCapability, 
+    private void processPDFinBackground(byte[] fileBytes, String fileName, String colorCapability, 
         String jobId, double fileSizeInBytes, double blackPrice, double blackYield,
-         double isoCoverage, double cyanPrice, double cyanYield, double magentaPrice, 
-         double magentaYield, double yellowPrice, double yellowYield,double a4Cost, double a3Cost, double a5Cost, double legalCost,
-         String targetPaperSize, String printLayout, String duplexMode, String colorPageRange, String monochromePageRange) {
+        double isoCoverage, double cyanPrice, double cyanYield, double magentaPrice, 
+        double magentaYield, double yellowPrice, double yellowYield, double a4Cost, double a3Cost, double a5Cost, double legalCost,
+        String targetPaperSize, String printLayout, String duplexMode, String colorPageRange, String monochromePageRange) {
 
         SseEmitter emitter = emitters.get(jobId);
-        if (emitter == null) return; // Client disconnected
+        if (emitter == null) return;
 
-
-
-        //boolean isMonochrome = "Monochrome".equalsIgnoreCase(colorCapability);
-
-        try(PDDocument document = Loader.loadPDF(fileBytes)) {
-
+        try (PDDocument document = Loader.loadPDF(fileBytes)) {
             long startTime = System.currentTimeMillis();
-            double fileSizeInMB =(double)fileSizeInBytes / (1024.0 * 1024.0);
-            String fileSizeMessage = String.format("File size: %.2f MB", fileSizeInMB);
-            
+            double fileSizeInMB = (double) fileSizeInBytes / (1024.0 * 1024.0);
             PDFRenderer renderer = new PDFRenderer(document);
             
             int totalPages = document.getNumberOfPages();
-            emitter.send("analyzing " + totalPages + " pages of the PDF file...");
-            //System.out.println("Received file: " + document.getOriginalFilename()+ "size : " + fileSizeMessage);
-            System.out.println("debug | " + targetPaperSize + " | " + printLayout + " | " + duplexMode );
-            System.out.println("iso coverage: " + isoCoverage);
+            emitter.send("Analyzing " + totalPages + " pages of the PDF file...");
 
-            
             List<List<Integer>> printJobs = parsePrintJobs(monochromePageRange, colorPageRange, totalPages);
             List<Integer> monoPages = printJobs.get(0);
             List<Integer> colorPages = printJobs.get(1);
@@ -139,66 +142,33 @@ public class DocumentController {
             allPages.addAll(colorPages);
             allPages.addAll(monoPages);
 
-            
-
-            // Print the raw strings coming from the frontend
-            System.out.println("DEBUG - Raw Mono String from Frontend: " + monochromePageRange);
-            System.out.println("DEBUG - Raw Color String from Frontend: " + colorPageRange);
-            // Then run your parser
-            
-            // Print the resulting lists separately
-            System.out.println("DEBUG - Parsed Mono List: " + monoPages);
-            System.out.println("DEBUG - Parsed Color List: " + colorPages);
-
-
-            
-            System.out.println("Total # pages: " + allPages.size() + " | Monochrome: " + monoPages.size() + " | Color: " + colorPages.size());
             final double standard_A4_Area = 501135.0; 
             double totalAreaMultiplier = 0.0;
 
-            double totalCyan = 0.0;
-            double totalMagenta = 0.0;
-            double totalYellow = 0.0;
-            double totalBlack = 0.0;
-
-            double cyanCost = 0.0;
-            double magentaCost = 0.0;
-            double yellowCost = 0.0;
-            double blackCost = 0.0;
-
+            double totalCyan = 0.0, totalMagenta = 0.0, totalYellow = 0.0, totalBlack = 0.0;
             double accumulated_pdf_page_area = 0.0;
             double total_pdf_pages = allPages.size();
 
-            for(Integer i : allPages) {
-
+            for (Integer i : allPages) {
                 boolean isMono = monoPages.contains(i);
                 boolean isColor = colorPages.contains(i);
-                
-                emitter.send("Processing Page Number : " + (i) + " | Monochrome: " + isMono + " | Color: " + isColor);
+                emitter.send("Processing Page Number: " + i + " | Monochrome: " + isMono + " | Color: " + isColor);
 
-                PDPage page = document.getPage(i-1); // PDFBox uses 0-based indexing
+                PDPage page = document.getPage(i - 1);
                 PDRectangle mediaBox = page.getMediaBox();
-                double pageArea =  mediaBox.getWidth() * mediaBox.getHeight() ;
+                double pageArea = mediaBox.getWidth() * mediaBox.getHeight();
                 accumulated_pdf_page_area += pageArea;
-
                 totalAreaMultiplier = (pageArea / standard_A4_Area);
 
-
-                // Lowering DPI to 50 or 72 is highly recommended. 
-                // Color coverage percentages remain almost identical, but it processes 9x faster than 150 DPI.
                 BufferedImage image = renderer.renderImageWithDPI(i - 1, 150); 
-
                 int width = image.getWidth();
                 int height = image.getHeight();  
                 double totalPixels = width * height;
 
                 double pageCyan = 0.0, pageMagenta = 0.0, pageYellow = 0.0, pageBlack = 0.0;
-
-                // Grab all pixels in one pass into a 1D array
                 int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
 
                 for (int pixel : pixels) {
-                    // Fast bitwise extraction of RGB (skipping alpha channel)
                     double r = ((pixel >> 16) & 0xff) / 255.0;
                     double g = ((pixel >> 8) & 0xff) / 255.0;
                     double b = (pixel & 0xff) / 255.0;
@@ -208,7 +178,6 @@ public class DocumentController {
                         pageBlack += (1.0 - luminance);
                     } else if (isColor) {
                         double k = 1.0 - Math.max(r, Math.max(g, b));
-
                         if (k < 1.0) {
                             pageCyan += (1.0 - r - k) / (1.0 - k);
                             pageMagenta += (1.0 - g - k) / (1.0 - k);
@@ -218,194 +187,522 @@ public class DocumentController {
                     }
                 }
 
-                // Clear the image from memory explicitly to prevent heap saturation
                 image.flush();
-                if(isColor){
-                    totalCyan += (pageCyan / totalPixels)*100*totalAreaMultiplier;
-                    totalMagenta += (pageMagenta / totalPixels)*100*totalAreaMultiplier;
-                    totalYellow += (pageYellow / totalPixels)*100*totalAreaMultiplier;
+                if (isColor) {
+                    totalCyan += (pageCyan / totalPixels) * 100 * totalAreaMultiplier;
+                    totalMagenta += (pageMagenta / totalPixels) * 100 * totalAreaMultiplier;
+                    totalYellow += (pageYellow / totalPixels) * 100 * totalAreaMultiplier;
                 }
-                totalBlack += (pageBlack / totalPixels)*100*totalAreaMultiplier;
-
+                totalBlack += (pageBlack / totalPixels) * 100 * totalAreaMultiplier;
             }
 
-
-
             double final_pdf_page_area = accumulated_pdf_page_area / total_pdf_pages;
-            double ink_cost_multiplier = 0.0;
-
-            
             double targetPaperArea = switch (targetPaperSize) {
-                
                 case "A3" -> 1002270.0;
                 case "A5" -> 250567.0;
                 case "Legal" -> 604800.0;
-                default -> 501135.0; // Default to A4 if unknown
+                default -> 501135.0;
             };
-            ink_cost_multiplier = targetPaperArea / final_pdf_page_area;
+            double ink_cost_multiplier = targetPaperArea / final_pdf_page_area;
 
-    
+            double cyanCost = totalCyan * ink_cost_multiplier * (cyanPrice / (cyanYield * isoCoverage)); 
+            double magentaCost = totalMagenta * ink_cost_multiplier * (magentaPrice / (magentaYield * isoCoverage));
+            double yellowCost = totalYellow * ink_cost_multiplier * (yellowPrice / (yellowYield * isoCoverage));
+            double blackCost = totalBlack * ink_cost_multiplier * (blackPrice / (blackYield * isoCoverage));
 
-            cyanCost = totalCyan *ink_cost_multiplier* (cyanPrice/(cyanYield*isoCoverage)); 
-            magentaCost = totalMagenta *ink_cost_multiplier* (magentaPrice/(magentaYield*isoCoverage));
-            yellowCost = totalYellow *ink_cost_multiplier* (yellowPrice/(yellowYield*isoCoverage));
-            blackCost = totalBlack *ink_cost_multiplier* (blackPrice/(blackYield*isoCoverage));
+            double totalInkCost = cyanCost + magentaCost + yellowCost + blackCost;
 
-            System.out.println("DEBUG | Final PDF Page Area: " + final_pdf_page_area + " | Ink Cost Multiplier: " + ink_cost_multiplier);
-
-            double totalInkCost = cyanCost + magentaCost + yellowCost + blackCost; //after scaling with target paper size
-            //++++++++++++++++++++++++++++++++++++++++++++++++++++
             int N_up = switch (printLayout) {
-                case "standard" -> 1;
-                case "booklet" -> 2;
-                case "2up" -> 2;
+                case "booklet", "2up" -> 2;
                 case "4up" -> 4;
-                default -> 1; // Default to single-sided if unknown
-            }; // Example value, replace with actual value
+                default -> 1;
+            };
             double ink_cost_after_N_up = totalInkCost / N_up;
 
             int duplexFactor = "duplex".equalsIgnoreCase(duplexMode) ? 2 : 1;
-            
-            int numberOfpagesAfterNup = (int) Math.ceil((double) allPages.size() / (N_up*duplexFactor));
+            int numberOfpagesAfterNup = (int) Math.ceil((double) allPages.size() / (N_up * duplexFactor));
 
-            double totalPaperCost = 0.0;
-            switch (targetPaperSize) {
-                case "A3" -> totalPaperCost = numberOfpagesAfterNup * a3Cost;
-                case "A5" -> totalPaperCost = numberOfpagesAfterNup * a5Cost;
-                case "Legal" -> totalPaperCost = numberOfpagesAfterNup * legalCost;
-                default -> totalPaperCost = numberOfpagesAfterNup * a4Cost; // Default to A4 if unknown
-            }
-            //####################### print layout and and duplex mode cost calculations can be added here #######################
-            //++++++++++++++++++++++++++++++++++++++++++++++++++++
+            double totalPaperCost = switch (targetPaperSize) {
+                case "A3" -> numberOfpagesAfterNup * a3Cost;
+                case "A5" -> numberOfpagesAfterNup * a5Cost;
+                case "Legal" -> numberOfpagesAfterNup * legalCost;
+                default -> numberOfpagesAfterNup * a4Cost;
+            };
 
-            
-            //System.out.println("cost without multiplieng: " + totalInkCost/ink_cost_multiplier);
-            String inkCostMessage = String.format("Total Ink Cost after scalling: %.2f (Cyan: %.2f, Magenta: %.2f, Yellow: %.2f, Black: %.2f)", totalInkCost, cyanCost, magentaCost, yellowCost, blackCost);
-            
-            //double totalPaperCost = 2 * totalPages;
-            
-            String inkCostAfterNupMessage = String.format("Ink Cost after N-up: %.2f", ink_cost_after_N_up);
+            Double costOfASingle_PaperSheet = switch (targetPaperSize) {
+                case "A3" -> a3Cost;
+                case "A5" -> a5Cost;
+                case "Legal" -> legalCost;
+                default -> a4Cost;
+            }; 
 
-            String pageMassage =String.format("Number of Pages after N-up: %d", numberOfpagesAfterNup);
+            double finalCost = ink_cost_after_N_up + totalPaperCost;
+            long processingTime = (System.currentTimeMillis() - startTime) / 1000;
 
-            String paperCostMessage = String.format("Total Paper Cost: %.2f", totalPaperCost);
+            // Store calculation output in memory for PDF generation
+            CalculationReport report = new CalculationReport();
+            report.jobId = jobId;
+            report.fileSizeMB = fileSizeInMB;
+            report.totalPages = allPages.size();
+            report.monoPagesCount = monoPages.size();
+            report.colorPagesCount = colorPages.size();
+            report.cyanUsage = totalCyan;
+            report.magentaUsage = totalMagenta;
+            report.yellowUsage = totalYellow;
+            report.blackUsage = totalBlack;
+            report.cyanCost = cyanCost;
+            report.magentaCost = magentaCost;
+            report.yellowCost = yellowCost;
+            report.blackCost = blackCost;
+            report.totalInkCost = totalInkCost;
+            report.inkCostAfterNup = ink_cost_after_N_up;
+            report.numberOfPagesAfterNup = numberOfpagesAfterNup;
+            report.totalPaperCost = totalPaperCost;
+            report.finalCost = finalCost;
+            report.processingTimeSeconds = processingTime;
+            report.targetPaperSize = targetPaperSize;
+            report.printLayout = printLayout;
+            report.duplexMode = duplexMode;
+            report.costOfASingle_PaperSheet = costOfASingle_PaperSheet;
+            report.fileName = fileName;
+            report.monoPages = monoPages;
+            report.colorPages = colorPages;
 
+            reports.put(jobId, report);
 
-            String final_cost_message = String.format("Final Cost: %.2f", ink_cost_after_N_up + totalPaperCost);
-           // double totalCost = totalInkCost; //+ totalPaperCost;
-           // String totalCostMessage = String.format("Total Cost after scalling: %.2f", totalCost);
+            // Send status messages to SSE UI
+            String summaryMessage = String.format("File size: %.2f MB | Analyzed: %d/%d\n" +
+                    "Mono Pages: %d | Color Pages: %d\n" +
+                    "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%\n" +
+                    "Processing Time: %d s\n\n" +
+                    "Ink Cost after scalling: %.2f\n" +
+                    "Ink Cost after N-up: %.2f\n" +
+                    "number of Sheets after N-up: %d\n" +
+                    "Cost per Sheet: %.2f\n" +
+                    "Total Paper Cost: %.2f\n" +
+                    "Final Cost(Ink + Paper): %.2f",
+                    fileSizeInMB, allPages.size(), totalPages,
+                    monoPages.size(), colorPages.size(),
+                    totalCyan, totalMagenta, totalYellow,
+                    processingTime, totalInkCost, ink_cost_after_N_up,
+                    numberOfpagesAfterNup, costOfASingle_PaperSheet, totalPaperCost, finalCost);
 
-            long endTime = System.currentTimeMillis();
-            long processingTime = (endTime - startTime)/1000;
+            emitter.send(summaryMessage);
 
-            String inkUsageMessage = String.format("Total Ink Usage - Cyan: %.2f%%, Magenta: %.2f%%, Yellow: %.2f%%, Black: %.2f%%",
-                    totalCyan, totalMagenta, totalYellow, totalBlack);
-            
-
-            System.out.println(inkUsageMessage);
-            System.out.println("Processing Time: " + processingTime + " s");
-
-            emitter.send(fileSizeMessage +" | Number of Pages Analyzed : " + allPages.size() + "/" + totalPages + "\n" 
-            + "Monochrome Pages: " + monoPages.size() + " | Color Pages: " + colorPages.size() + "\n"
-             + inkUsageMessage + "\n Processing Time: " +
-              processingTime + " s \n" +"\n"
-              + inkCostMessage + "\n" 
-              + inkCostAfterNupMessage + "\n"
-                + pageMassage+"\n"
-                +paperCostMessage+"\n"
-                +final_cost_message
-            );
-                //+ totalCostMessage );
-            
+            // Send named SSE completion event and close emitter
+            emitter.send(SseEmitter.event().name("COMPLETE").data("Analysis complete!"));
+            emitter.complete();
 
         } catch (Exception e) {
-            ///e.printStackTrace();
             emitter.completeWithError(e);
         }
     }
 
-
-public List<List<Integer>> parsePrintJobs(String monoInput, String colorInput, int totalPages) {
-    List<List<Integer>> result = new ArrayList<>();
-
-    boolean isMonoEmpty = (monoInput == null || monoInput.trim().isEmpty());
-    boolean isColorEmpty = (colorInput == null || colorInput.trim().isEmpty());
-
-    // Rule 1: If both strings are empty, the whole document is printed in mono
-    if (isMonoEmpty && isColorEmpty) {
-        List<Integer> fullMonoList = new ArrayList<>();
-        for (int i = 1; i <= totalPages; i++) {
-            fullMonoList.add(i);
+    // Endpoint to generate and download PDF report
+    @GetMapping("/download_pdf/{jobId}")
+    public ResponseEntity<byte[]> downloadPdfReport(@PathVariable String jobId) {
+        CalculationReport report = reports.get(jobId);
+        if (report == null) {
+            return ResponseEntity.notFound().build();
         }
-        
-        result.add(fullMonoList);       // Index 0: Mono list (Full)
-        result.add(new ArrayList<>());  // Index 1: Color list (Empty)
+
+        try (PDDocument doc = new PDDocument();
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            System.out.println("Generating PDF report for Job ID: " + jobId);
+
+            PDPage page = new PDPage(PDRectangle.A4);
+            doc.addPage(page);
+
+            try (PDPageContentStream content = new PDPageContentStream(doc, page)) {
+
+                // --- 1. COLOR PALETTE & FONTS ---
+                Color COLOR_PRIMARY = new Color(30, 41, 59);     // Slate Dark Blue
+                Color COLOR_SECONDARY = new Color(71, 85, 105);  // Slate Medium Gray
+                Color COLOR_CARD_BG = new Color(248, 250, 252);  // Soft Card Fill
+                Color COLOR_CARD_BORDER = new Color(226, 232, 240); // Card Border
+                Color COLOR_TOTAL_BG = new Color(240, 253, 244);  // Light Emerald Background
+                Color COLOR_TOTAL_BORDER = new Color(34, 197, 94); // Emerald Border
+                Color COLOR_TOTAL_TEXT = new Color(21, 128, 61);   // Emerald Dark Text
+
+                PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+                PDType1Font fontReg = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+
+                // --- 2. LOGO RESOLUTION & PLACEMENT ---
+                Path logoStorageDir = Paths.get(System.getProperty("user.home"), ".ink_estimator", "logo");
+                Path pngPath = logoStorageDir.resolve("shop-logo.png");
+                Path jpgPath = logoStorageDir.resolve("shop-logo.jpg");
+                
+                PDImageXObject pdImage = null;
+
+                if (Files.exists(pngPath)) {
+                    pdImage = PDImageXObject.createFromFileByContent(pngPath.toFile(), doc);
+                } else if (Files.exists(jpgPath)) {
+                    pdImage = PDImageXObject.createFromFileByContent(jpgPath.toFile(), doc);
+                } else {
+                    ClassPathResource defaultLogo = new ClassPathResource("static/default-logo.png");
+                    if (defaultLogo.exists()) {
+                        byte[] logoBytes = StreamUtils.copyToByteArray(defaultLogo.getInputStream());
+                        pdImage = PDImageXObject.createFromByteArray(doc, logoBytes, "default-logo");
+                    }
+                }
+
+                if (pdImage != null) {
+                    float maxWidth = 130f;
+                    float maxHeight = 45f;
+                    float imgWidth = pdImage.getWidth();
+                    float imgHeight = pdImage.getHeight();
+
+                    float scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+                    float drawWidth = imgWidth * scale;
+                    float drawHeight = imgHeight * scale;
+
+                    float xPos = 595f - 40f - drawWidth; 
+                    float yPos = 842f - 40f - drawHeight; 
+
+                    content.drawImage(pdImage, xPos, yPos, drawWidth, drawHeight);
+                }
+
+                // --- 3. HEADER TITLE & SUBTITLE ---
+                content.beginText();
+                content.setFont(fontBold, 18);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(40, 770);
+                content.showText("Cost Estimation Report");
+                content.endText();
+
+                content.beginText();
+                content.setFont(fontReg, 10);
+                content.setNonStrokingColor(COLOR_SECONDARY);
+                content.newLineAtOffset(40, 755);
+                content.showText("PDF Ink & Paper Analysis Breakdown");
+                content.endText();
+
+                // Header Divider Line
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.setLineWidth(1.0f);
+                content.moveTo(40, 742);
+                content.lineTo(555, 742);
+                content.stroke();
+
+                // --- 4. METADATA CARD (HEIGHT INCREASED TO 105 FOR WRAPPED LISTS) ---
+                content.setNonStrokingColor(COLOR_CARD_BG);
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.addRect(40, 625, 515, 105);
+                content.fillAndStroke();
+
+                // Left Column Details
+                String rawFileName = (report.fileName != null) ? report.fileName : "Unknown File";
+                List<String> fileNameLines = wrapText("File Name: " + rawFileName, fontReg, 9f, 240f);
+
+                content.beginText();
+                content.setFont(fontReg, 9);
+                content.setLeading(13f);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(55, 715);
+                content.showText("Job ID: " + report.jobId); content.newLine();
+                
+                int fnCount = 0;
+                for (String fnLine : fileNameLines) {
+                    if (fnCount >= 2) {
+                        content.showText("...");
+                        content.newLine();
+                        break;
+                    }
+                    content.showText(fnLine); content.newLine();
+                    fnCount++;
+                }
+                
+                content.showText(String.format("File Size: %.2f MB", report.fileSizeMB));
+                content.endText();
+
+                // Right Column Details (Formatted Ranges & Wrapped Text)
+                String monoStr = "Mono Pages: " + formatPageRanges(report.monoPages);
+                String colorStr = "Color Pages: " + formatPageRanges(report.colorPages);
+
+                List<String> monoLines = wrapText(monoStr, fontReg, 9f, 230f);
+                List<String> colorLines = wrapText(colorStr, fontReg, 9f, 230f);
+
+                content.beginText();
+                content.setFont(fontReg, 9);
+                content.setLeading(13f);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(310, 715);
+
+                int mCount = 0;
+                for (String line : monoLines) {
+                    if (mCount >= 2) {
+                        content.showText(line + "...");
+                        content.newLine();
+                        break;
+                    }
+                    content.showText(line); content.newLine();
+                    mCount++;
+                }
+
+                int cCount = 0;
+                for (String line : colorLines) {
+                    if (cCount >= 2) {
+                        content.showText(line + "...");
+                        content.newLine();
+                        break;
+                    }
+                    content.showText(line); content.newLine();
+                    cCount++;
+                }
+
+                content.showText(String.format("Pages Analyzed: %d (Mono: %d, Color: %d)",
+                        report.totalPages, report.monoPagesCount, report.colorPagesCount)); content.newLine();
+                content.showText("Processing Time: " + report.processingTimeSeconds + " seconds");
+                content.endText();
+
+                // --- 5. INK ANALYSIS CARD ---
+                content.beginText();
+                content.setFont(fontBold, 12);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(40, 605);
+                content.showText("Ink Analysis (Original Document)");
+                content.endText();
+
+                content.setNonStrokingColor(COLOR_CARD_BG);
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.addRect(40, 505, 515, 85);
+                content.fillAndStroke();
+
+                content.beginText();
+                content.setFont(fontReg, 10);
+                content.setLeading(16f);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(55, 572);
+                content.showText(String.format("Cyan Coverage:     %.2f%%   (Cost: %.2f)", report.cyanUsage, report.cyanCost)); content.newLine();
+                content.showText(String.format("Magenta Coverage:  %.2f%%   (Cost: %.2f)", report.magentaUsage, report.magentaCost)); content.newLine();
+                content.showText(String.format("Yellow Coverage:   %.2f%%   (Cost: %.2f)", report.yellowUsage, report.yellowCost)); content.newLine();
+                content.showText(String.format("Black Coverage:    %.2f%%   (Cost: %.2f)", report.blackUsage, report.blackCost));
+                content.endText();
+
+                // --- 6. CONFIGURATION & INK SUMMARY CARD ---
+                content.beginText();
+                content.setFont(fontBold, 12);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(40, 485);
+                content.showText("Configuration & Ink Summary");
+                content.endText();
+
+                content.setNonStrokingColor(COLOR_CARD_BG);
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.addRect(40, 395, 515, 75);
+                content.fillAndStroke();
+
+                content.beginText();
+                content.setFont(fontReg, 10);
+                content.setLeading(16f);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(55, 452);
+                content.showText(String.format("Target Paper: %s   |   Layout (N-up): %s   |   Duplex Mode: %s",
+                        report.targetPaperSize, report.printLayout, report.duplexMode)); content.newLine();
+                content.showText(String.format("Ink Cost (Scaled): %.2f", report.totalInkCost)); content.newLine();
+                content.showText(String.format("Ink Cost (After N-Up): %.2f", report.inkCostAfterNup));
+                content.endText();
+
+                // --- 7. PAPER COSTS CARD ---
+                content.beginText();
+                content.setFont(fontBold, 12);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(40, 375);
+                content.showText("Paper Costs");
+                content.endText();
+
+                content.setNonStrokingColor(COLOR_CARD_BG);
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.addRect(40, 285, 515, 75);
+                content.fillAndStroke();
+
+                content.beginText();
+                content.setFont(fontReg, 10);
+                content.setLeading(16f);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(55, 342);
+                content.showText(String.format("Physical Sheets Required: %d", report.numberOfPagesAfterNup)); content.newLine();
+                content.showText(String.format("Cost per Sheet: %.2f", report.costOfASingle_PaperSheet)); content.newLine();
+                content.showText(String.format("Total Paper Cost: %.2f", report.totalPaperCost));
+                content.endText();
+
+                // --- 8. GRAND TOTAL CALLOUT BOX ---
+                content.setNonStrokingColor(COLOR_TOTAL_BG);
+                content.setStrokingColor(COLOR_TOTAL_BORDER);
+                content.setLineWidth(1.5f);
+                content.addRect(40, 205, 515, 60);
+                content.fillAndStroke();
+
+                content.beginText();
+                content.setFont(fontBold, 11);
+                content.setNonStrokingColor(COLOR_TOTAL_TEXT);
+                content.newLineAtOffset(60, 240);
+                content.showText("TOTAL ESTIMATED COST");
+                content.endText();
+
+                content.beginText();
+                content.setFont(fontBold, 18);
+                content.setNonStrokingColor(COLOR_TOTAL_TEXT);
+                content.newLineAtOffset(60, 218);
+                content.showText(String.format("%.2f", report.finalCost));
+                content.endText();
+
+            }
+
+            // Save PDF into ByteArrayOutputStream
+            doc.save(baos);
+
+            // Clean attachment filename header
+            String safeFileName = (report.fileName != null ? report.fileName : "Document")
+                    .replaceAll("[^a-zA-Z0-9.-]", "_");
+            String downloadFileName = "SHOP_EST_RPT_" + safeFileName + "_" + jobId + ".pdf";
+
+            byte[] pdfBytes = baos.toByteArray();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentLength(pdfBytes.length);
+            headers.setContentDisposition(
+                    ContentDisposition.attachment()
+                            .filename(downloadFileName)
+                            .build()
+            );
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdfBytes);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // Helper: Formats list of integers into range notation (e.g. 1-5, 8-10, 12)
+    private String formatPageRanges(List<Integer> pages) {
+        if (pages == null || pages.isEmpty()) return "None";
+        List<Integer> sorted = new ArrayList<>(pages);
+        Collections.sort(sorted);
+
+        StringBuilder sb = new StringBuilder();
+        int start = sorted.get(0);
+        int prev = start;
+
+        for (int i = 1; i < sorted.size(); i++) {
+            int current = sorted.get(i);
+            if (current == prev + 1) {
+                prev = current;
+            } else {
+                if (start == prev) {
+                    sb.append(start).append(", ");
+                } else {
+                    sb.append(start).append("-").append(prev).append(", ");
+                }
+                start = current;
+                prev = current;
+            }
+        }
+        if (start == prev) {
+            sb.append(start);
+        } else {
+            sb.append(start).append("-").append(prev);
+        }
+        return sb.toString();
+    }
+
+    // Helper: Wraps text lines according to maximum pixel width
+    private List<String> wrapText(String text, PDType1Font font, float fontSize, float maxWidth) {
+        List<String> lines = new ArrayList<>();
+        if (text == null || text.trim().isEmpty()) return lines;
+
+        try {
+            String[] words = text.split(" ");
+            StringBuilder currentLine = new StringBuilder();
+
+            for (String word : words) {
+                String testLine = (currentLine.length() == 0) ? word : currentLine + " " + word;
+                float textWidth = font.getStringWidth(testLine) / 1000f * fontSize;
+
+                if (textWidth > maxWidth) {
+                    if (currentLine.length() > 0) {
+                        lines.add(currentLine.toString());
+                        currentLine = new StringBuilder(word);
+                    } else {
+                        lines.add(testLine);
+                        currentLine = new StringBuilder();
+                    }
+                } else {
+                    currentLine = new StringBuilder(testLine);
+                }
+            }
+
+            if (currentLine.length() > 0) {
+                lines.add(currentLine.toString());
+            }
+        } catch (Exception e) {
+            lines.add(text);
+        }
+
+        return lines;
+    }
+
+    public List<List<Integer>> parsePrintJobs(String monoInput, String colorInput, int totalPages) {
+        List<List<Integer>> result = new ArrayList<>();
+        boolean isMonoEmpty = (monoInput == null || monoInput.trim().isEmpty());
+        boolean isColorEmpty = (colorInput == null || colorInput.trim().isEmpty());
+
+        if (isMonoEmpty && isColorEmpty) {
+            List<Integer> fullMonoList = new ArrayList<>();
+            for (int i = 1; i <= totalPages; i++) fullMonoList.add(i);
+            result.add(fullMonoList);
+            result.add(new ArrayList<>());
+            return result;
+        }
+
+        Set<Integer> colorPages = parseSingleString(colorInput, totalPages);
+        Set<Integer> monoPages = parseSingleString(monoInput, totalPages);
+        monoPages.removeAll(colorPages);
+
+        List<Integer> finalMonoList = new ArrayList<>(monoPages);
+        Collections.sort(finalMonoList);
+        List<Integer> finalColorList = new ArrayList<>(colorPages);
+        Collections.sort(finalColorList);
+
+        result.add(finalMonoList);
+        result.add(finalColorList);
         return result;
     }
 
-    // Rule 2: Parse both strings into Sets (Sets automatically prevent duplicates)
-    Set<Integer> colorPages = parseSingleString(colorInput, totalPages);
-    Set<Integer> monoPages = parseSingleString(monoInput, totalPages);
+    private Set<Integer> parseSingleString(String input, int totalPages) {
+        Set<Integer> pages = new HashSet<>();
+        if (input == null || input.trim().isEmpty()) return pages;
 
-    // Rule 3: Color has priority. Remove any page from Mono that already exists in Color.
-    monoPages.removeAll(colorPages);
-
-    // Convert the Sets back to standard Lists and sort them numerically
-    List<Integer> finalMonoList = new ArrayList<>(monoPages);
-    Collections.sort(finalMonoList);
-
-    List<Integer> finalColorList = new ArrayList<>(colorPages);
-    Collections.sort(finalColorList);
-
-    // Add to the final nested list and return
-    result.add(finalMonoList);
-    result.add(finalColorList);
-
-    return result;
-}
-
-private Set<Integer> parseSingleString(String input, int totalPages) {
-    Set<Integer> pages = new HashSet<>();
-
-    if (input == null || input.trim().isEmpty()) {
+        for (String part : input.split(",")) {
+            part = part.trim();
+            if (part.contains("-")) {
+                if (part.endsWith("-")) {
+                    try {
+                        int start = Integer.parseInt(part.substring(0, part.length() - 1).trim());
+                        for (int i = start; i <= totalPages; i++) pages.add(i);
+                    } catch (NumberFormatException ignored) {}
+                } else {
+                    String[] range = part.split("-");
+                    if (range.length == 2) {
+                        try {
+                            int start = Integer.parseInt(range[0].trim());
+                            int end = Math.min(Integer.parseInt(range[1].trim()), totalPages);
+                            for (int i = start; i <= end; i++) pages.add(i);
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            } else {
+                try {
+                    int page = Integer.parseInt(part);
+                    if (page <= totalPages) pages.add(page);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
         return pages;
     }
-
-    for (String part : input.split(",")) {
-        part = part.trim();
-
-        if (part.contains("-")) {
-            if (part.endsWith("-")) {
-                try {
-                    String startStr = part.substring(0, part.length() - 1).trim();
-                    int start = Integer.parseInt(startStr);
-                    for (int i = start; i <= totalPages; i++) {
-                        pages.add(i);
-                    }
-                } catch (NumberFormatException ignored) {}
-            } else {
-                String[] range = part.split("-");
-                if (range.length == 2) {
-                    try {
-                        int start = Integer.parseInt(range[0].trim());
-                        int end = Integer.parseInt(range[1].trim());
-                        end = Math.min(end, totalPages);
-                        for (int i = start; i <= end; i++) {
-                            pages.add(i);
-                        }
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-        } else {
-            try {
-                int page = Integer.parseInt(part);
-                if (page <= totalPages) {
-                    pages.add(page);
-                }
-            } catch (NumberFormatException ignored) {}
-        }
-    }
-    return pages;
-}
-    
 }

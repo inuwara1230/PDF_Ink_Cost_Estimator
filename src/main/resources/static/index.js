@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 5. Event Listener: Clear Settings Button
-    // 5. Event Listener: Clear Settings Button
     document.getElementById('clear_settings').addEventListener('click', async function() {
         // Step A: Clear the UI Form
         document.getElementById('inkCostForm').reset();
@@ -56,10 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 console.log(message);
                 document.getElementById('settingsStatus').innerText = message;
-                //alert("Settings cleared from form and database!");
             } else {
                 document.getElementById('settingsStatus').innerText = message;
-                //alert('Error: ' + message);
             }
         } catch (error) {
             console.error('Error clearing printer settings:', error);
@@ -74,8 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileInput = document.getElementById('pdfFileInput');
         const file = fileInput.files[0];
         const colorMode = document.getElementById('colorTypeSelect').value;
-
-        //methanin pdf printer job details ganna ona
 
         const target = document.getElementById('targetPaperSize').value;
         const layout = document.getElementById('printMode').value;
@@ -92,21 +87,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusText = document.getElementById('uploadStatus');
         statusText.innerText = 'Connecting to server...';
 
+        // Disable the download button at the start of processing
+        const downloadBtn = document.getElementById('downloadPdfBtn');
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+            downloadBtn.onclick = null;
+        }
+
         const eventSource = new EventSource(`/api/progress/${jobID}`);
 
+        // Handle standard text updates
         eventSource.onmessage = function(event) {
-            statusText.innerHTML = event.data.replace(/\n/g, '<br>'); // Replace newlines with <br> for HTML display
+            statusText.innerHTML = event.data.replace(/\n/g, '<br>'); 
 
-            if (event.data.includes('Analysis Complete!') || event.data.includes('Error')) {
-                eventSource.close();
+            eventSource.addEventListener('COMPLETE', function(event) {
+            console.log("Calculations finished!");
+            eventSource.close();
+
+            if (downloadBtn) {
+                downloadBtn.disabled = false; // Enable the button
+                downloadBtn.onclick = function() {
+                    // FIX 1: Added /api prefix to match controller mapping
+                    window.location.href = `/api/download_pdf/${jobID}`;
+                };
             }
+            });
+        };
+
+        
+
+        // Handle network drops gracefully
+        eventSource.onerror = function(err) {
+            console.error("SSE Error:", err);
+            eventSource.close();
+            statusText.innerText += "\n[Connection closed or errored]";
         };
 
         const formData = new FormData();
         formData.append('pdfDocument', file);
         formData.append('colorCapability', colorMode);
         formData.append('jobID', jobID);
-        //formData.append('paperCost', document.getElementById('paperCost').value || '0');
 
         formData.append('blackPrice', document.getElementById('monochrome_cost').value || '0');
         formData.append('blackYield', document.getElementById('monochrome_yield').value || '1');
@@ -216,10 +236,8 @@ async function sendSettingsRequest(url, method, successMessage) {
         const message = await response.text();
         if (response.ok) {
             setting_massage.innerText = message;
-            //alert(successMessage);
         } else {
             setting_massage.innerText = message;
-            //alert('Error: ' + message);
         }
     } catch (error) {
         console.error('Error processing printer settings:', error);
