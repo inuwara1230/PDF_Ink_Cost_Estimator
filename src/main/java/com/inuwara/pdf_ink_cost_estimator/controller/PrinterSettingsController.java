@@ -76,6 +76,10 @@ public class PrinterSettingsController {
             settingsToUpdate.setA5Cost(updatedSettings.getA5Cost());
             settingsToUpdate.setLegalCost(updatedSettings.getLegalCost());
 
+            settingsToUpdate.setMarkupPercentage(updatedSettings.getMarkupPercentage());
+            settingsToUpdate.setMinimumFee(updatedSettings.getMinimumFee());
+            settingsToUpdate.setFinishingCost(updatedSettings.getFinishingCost());
+
             repository.save(settingsToUpdate);
             return ResponseEntity.ok("Settings updated successfully!");
         } catch (Exception e) {

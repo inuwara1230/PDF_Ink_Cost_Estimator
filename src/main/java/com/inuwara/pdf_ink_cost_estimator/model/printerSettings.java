@@ -77,7 +77,29 @@ public class printerSettings {
     @Column(name = "legal_cost", nullable = false)
     private Double legalCost;
 
+    // Add these fields inside printerSettings.java[cite: 2]
+
+    @Column(name = "markup_percentage", nullable = false)
+    private Double markupPercentage = 100.0;
+
+    @Column(name = "minimum_fee", nullable = false)
+    private Double minimumFee = 0.0;
+
+    @Column(name = "finishing_cost", nullable = false)
+    private Double finishingCost = 0.0;
+
+
+
     // --- Getters and Setters ---
+
+    public Double getMarkupPercentage() { return markupPercentage; }
+    public void setMarkupPercentage(Double markupPercentage) { this.markupPercentage = markupPercentage; }
+
+    public Double getMinimumFee() { return minimumFee; }
+    public void setMinimumFee(Double minimumFee) { this.minimumFee = minimumFee; }
+
+    public Double getFinishingCost() { return finishingCost; }
+    public void setFinishingCost(Double finishingCost) { this.finishingCost = finishingCost; }
     
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

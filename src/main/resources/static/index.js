@@ -142,6 +142,12 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('duplexMode', sides);
         formData.append('colorPageRange', color_page_range);
         formData.append('monochromePageRange', monochrome_page_range);
+       
+        // Read the new job-specific discount field and append it to the formData
+        formData.append('markupPercentage', document.getElementById('markup_percentage').value || '100');
+        formData.append('minimumFee', document.getElementById('minimum_fee').value || '0');
+        formData.append('finishingCost', document.getElementById('finishing_cost').value || '0');
+        formData.append('discountPercentage', document.getElementById('job_discount').value || '0');
 
         if (colorMode !== 'Monochrome') {
             formData.append('cyanPrice', document.getElementById('cyanPrice').value || '0');
@@ -199,6 +205,10 @@ function getSettingsFormData() {
         a3Cost: parseFloat(document.getElementById('A3').value) || 0.0,
         a5Cost: parseFloat(document.getElementById('A5').value) || 0.0,
         legalCost: parseFloat(document.getElementById('Legal').value) || 0.0,
+
+        markupPercentage: parseFloat(document.getElementById('markup_percentage').value) || 0.0,
+        minimumFee: parseFloat(document.getElementById('minimum_fee').value) || 0.0,
+        finishingCost: parseFloat(document.getElementById('finishing_cost').value) || 0.0,
     };
 }
 
@@ -278,6 +288,12 @@ async function loadSavedSettings() {
 
             // Sync visible sections according to restored color capability
             document.getElementById('color_capability').dispatchEvent(new Event('change'));
+
+            // Inside loadSavedSettings() in index.js[cite: 6]
+            document.getElementById('markup_percentage').value = data.markupPercentage ?? 100;
+            document.getElementById('minimum_fee').value = data.minimumFee ?? 0;
+            document.getElementById('finishing_cost').value = data.finishingCost ?? 0;
+            
         }
     } catch (error) {
         console.log('No saved settings found for current session.');

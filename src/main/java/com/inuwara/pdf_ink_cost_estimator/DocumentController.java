@@ -30,6 +30,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.awt.Color;
 
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
 @RestController
 @RequestMapping("/api")
 public class DocumentController {
@@ -61,6 +64,11 @@ public class DocumentController {
         public String fileName; // Store the original file name for reference
         public List<Integer> monoPages;
         public List<Integer> colorPages;
+        public double markupPercentage;
+        public double minimumFee;
+        public double finishingCost;
+        public double discountPercentage;
+        public double customerFinalPrice;
     }
 
     @GetMapping(value = "/progress/{jobId}", produces = "text/event-stream")
@@ -97,7 +105,11 @@ public class DocumentController {
         @RequestParam(value = "printLayout", required = false, defaultValue = "standard") String printLayout,
         @RequestParam(value = "duplexMode", required = false, defaultValue = "simplex") String duplexMode,
         @RequestParam(value = "colorPageRange", required = false, defaultValue = "") String colorPageRange,
-        @RequestParam(value = "monochromePageRange", required = false, defaultValue = "") String monochromePageRange)
+        @RequestParam(value = "monochromePageRange", required = false, defaultValue = "") String monochromePageRange,
+        @RequestParam (value = "markupPercentage", required = false, defaultValue = "100") double markupPercentage,
+        @RequestParam (value = "minimumFee", required = false, defaultValue = "0") double minimumFee,
+        @RequestParam (value = "finishingCost", required = false, defaultValue = "0") double finishingCost,
+        @RequestParam (value = "discountPercentage", required = false, defaultValue = "0") double discountPercentage)
     {
         if (file.isEmpty()) return ResponseEntity.badRequest().body("File is empty.");
         if (!"application/pdf".equals(file.getContentType())) return ResponseEntity.badRequest().body("Only PDF files are allowed.");
@@ -109,7 +121,7 @@ public class DocumentController {
             new Thread(() -> processPDFinBackground(fileBytes, fileName, colorCapability, jobID,
                  fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield,
                   magentaPrice, magentaYield, yellowPrice, yellowYield, a4Cost, a3Cost, a5Cost, legalCost,
-                targetPaperSize, printLayout, duplexMode, colorPageRange, monochromePageRange)).start();
+                targetPaperSize, printLayout, duplexMode, colorPageRange, monochromePageRange, markupPercentage, minimumFee, finishingCost, discountPercentage)).start();
             return ResponseEntity.ok("Upload received, processing started...");
         } catch (Exception e) {
             e.printStackTrace();
@@ -121,7 +133,8 @@ public class DocumentController {
         String jobId, double fileSizeInBytes, double blackPrice, double blackYield,
         double isoCoverage, double cyanPrice, double cyanYield, double magentaPrice, 
         double magentaYield, double yellowPrice, double yellowYield, double a4Cost, double a3Cost, double a5Cost, double legalCost,
-        String targetPaperSize, String printLayout, String duplexMode, String colorPageRange, String monochromePageRange) {
+        String targetPaperSize, String printLayout, String duplexMode, String colorPageRange, String monochromePageRange,
+        double markupPercentage, double minimumFee, double finishingCost, double discountPercentage) {
 
         SseEmitter emitter = emitters.get(jobId);
         if (emitter == null) return;
@@ -236,8 +249,37 @@ public class DocumentController {
                 default -> a4Cost;
             }; 
 
-            double finalCost = ink_cost_after_N_up + totalPaperCost;
             long processingTime = (System.currentTimeMillis() - startTime) / 1000;
+            double finalCost = ink_cost_after_N_up + totalPaperCost;
+           
+            Double tiered_Multiplier = 1.0;
+            if (finalCost < 50) {
+                tiered_Multiplier = 1.2; 
+            } else if (finalCost < 100) {
+                tiered_Multiplier = 1.1; 
+            } else if (finalCost < 200) {
+                tiered_Multiplier = 1.05; 
+            }else if (finalCost < 500) {
+                tiered_Multiplier = 1.02; 
+            }else if (finalCost < 1000) {
+                tiered_Multiplier = 1.01; 
+            }else if (finalCost < 2000) {
+                tiered_Multiplier = 1.005; 
+            }else if (finalCost < 5000) {
+                tiered_Multiplier = 1.0; 
+            }else if (finalCost < 10000) {
+                tiered_Multiplier = 0.99;
+            } else if (finalCost < 20000) {
+                tiered_Multiplier = 0.98;
+            } else {
+                tiered_Multiplier = 0.97; 
+            }
+            double markedUpCost = finalCost * (1+(markupPercentage / 100.0)*tiered_Multiplier);
+            double subtotal = markedUpCost + finishingCost;
+            if (subtotal < minimumFee) {
+                subtotal = minimumFee;
+            }
+            double customerFinalPrice = subtotal - (subtotal * (discountPercentage / 100.0));
 
             // Store calculation output in memory for PDF generation
             CalculationReport report = new CalculationReport();
@@ -268,24 +310,37 @@ public class DocumentController {
             report.monoPages = monoPages;
             report.colorPages = colorPages;
 
+            report.markupPercentage = markupPercentage;
+            report.minimumFee = minimumFee;
+            report.finishingCost = finishingCost;
+            report.discountPercentage = discountPercentage;
+            report.customerFinalPrice = customerFinalPrice;
+
             reports.put(jobId, report);
 
             // Send status messages to SSE UI
             String summaryMessage = String.format("File size: %.2f MB | Analyzed: %d/%d\n" +
                     "Mono Pages: %d | Color Pages: %d\n" +
-                    "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%\n" +
+                    "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%, K: %.2f%%\n" +
                     "Processing Time: %d s\n\n" +
+                    "Tiered Multiplier: %.2f\n" +
                     "Ink Cost after scalling: %.2f\n" +
-                    "Ink Cost after N-up: %.2f\n" +
+                    "Ink Cost after N-up: %.2f\n\n" +
                     "number of Sheets after N-up: %d\n" +
                     "Cost per Sheet: %.2f\n" +
                     "Total Paper Cost: %.2f\n" +
-                    "Final Cost(Ink + Paper): %.2f",
+                    "Final Cost(Ink + Paper): %.2f\n\n"+
+                    "Markup: %.2f%%\n" +
+                    "Minimum Fee: %.2f\n" +
+                    "Finishing Cost: %.2f\n" +
+                    "Discount: %.2f%%\n\n" +
+                    "Customer Final Price: %.2f",
                     fileSizeInMB, allPages.size(), totalPages,
                     monoPages.size(), colorPages.size(),
-                    totalCyan, totalMagenta, totalYellow,
-                    processingTime, totalInkCost, ink_cost_after_N_up,
-                    numberOfpagesAfterNup, costOfASingle_PaperSheet, totalPaperCost, finalCost);
+                    totalCyan, totalMagenta, totalYellow, totalBlack,
+                    processingTime,tiered_Multiplier, totalInkCost, ink_cost_after_N_up,
+                    numberOfpagesAfterNup, costOfASingle_PaperSheet, totalPaperCost, finalCost,
+                     markupPercentage, minimumFee, finishingCost, discountPercentage, customerFinalPrice);
 
             emitter.send(summaryMessage);
 
@@ -298,23 +353,55 @@ public class DocumentController {
         }
     }
 
-    // Endpoint to generate and download PDF report
-    @GetMapping("/download_pdf/{jobId}")
-    public ResponseEntity<byte[]> downloadPdfReport(@PathVariable String jobId) {
-        CalculationReport report = reports.get(jobId);
-        if (report == null) {
-            return ResponseEntity.notFound().build();
-        }
 
-        try (PDDocument doc = new PDDocument();
-             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
-            System.out.println("Generating PDF report for Job ID: " + jobId);
+@GetMapping("/download_pdf/{jobId}")
+public ResponseEntity<byte[]> downloadPdfReport(@PathVariable String jobId) {
+    CalculationReport report = reports.get(jobId);
+    if (report == null) {
+        return ResponseEntity.notFound().build();
+    }
 
-            PDPage page = new PDPage(PDRectangle.A4);
-            doc.addPage(page);
+    try (ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
+         ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
 
-            try (PDPageContentStream content = new PDPageContentStream(doc, page)) {
+        // 1. Generate and add Shop Report to ZIP
+        byte[] shopPdf = generateShopReport(report);
+        zos.putNextEntry(new ZipEntry("SHOP_RPT_"+report.fileName + jobId + ".pdf"));
+        zos.write(shopPdf);
+        zos.closeEntry();
+
+        // 2. Generate and add Customer Report to ZIP
+        byte[] customerPdf = generateCustomerReport(report);
+        zos.putNextEntry(new ZipEntry("CUSTOMER_RPT_"+report.fileName + jobId + ".pdf"));
+        zos.write(customerPdf);
+        zos.closeEntry();
+
+        zos.finish();
+
+        // 3. Send the ZIP file
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.valueOf("application/zip"));
+        
+        String safeFileName = (report.fileName != null ? report.fileName : "Document").replaceAll("[^a-zA-Z0-9.-]", "_");
+        headers.setContentDispositionFormData("attachment", "REPORTS" + "_" + safeFileName + ".zip");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(zipBaos.toByteArray());
+
+    } catch (Exception e) {
+        e.printStackTrace();
+        return ResponseEntity.internalServerError().build();
+    }
+}
+
+private byte[] generateShopReport(CalculationReport report) throws Exception {
+    try (PDDocument doc = new PDDocument(); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        PDPage page = new PDPage(PDRectangle.A4);
+        doc.addPage(page);
+
+        try (PDPageContentStream content = new PDPageContentStream(doc, page)) {
 
                 // --- 1. COLOR PALETTE & FONTS ---
                 Color COLOR_PRIMARY = new Color(30, 41, 59);     // Slate Dark Blue
@@ -527,57 +614,295 @@ public class DocumentController {
                 content.showText(String.format("Total Paper Cost: %.2f", report.totalPaperCost));
                 content.endText();
 
-                // --- 8. GRAND TOTAL CALLOUT BOX ---
+                
+
+               // Calculate the profit
+                double profit = report.customerFinalPrice - report.finalCost;
+
+                // --- 8. FINANCIAL SUMMARY (3-COLUMN DASHBOARD) ---
+                float boxY = 195f;
+                float boxH = 65f;
+                float titleY = boxY + 40f;
+                float valueY = boxY + 18f;
+
+                // Column 1: Total Shop Cost (Base Ink + Paper)
+                content.setNonStrokingColor(COLOR_CARD_BG);
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.setLineWidth(1.0f);
+                content.addRect(40, boxY, 165, boxH);
+                content.fillAndStroke();
+
+                content.beginText();
+                content.setFont(fontBold, 10);
+                content.setNonStrokingColor(COLOR_SECONDARY);
+                content.newLineAtOffset(55, titleY);
+                content.showText("TOTAL SHOP COST");
+                content.endText();
+
+                content.beginText();
+                content.setFont(fontBold, 16);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(55, valueY);
+                content.showText(String.format("%.2f", report.finalCost));
+                content.endText();
+
+                // Column 2: Customer Charged (After Markup/Discounts)
+                content.setNonStrokingColor(COLOR_CARD_BG);
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.setLineWidth(1.0f);
+                content.addRect(215, boxY, 165, boxH);
+                content.fillAndStroke();
+
+                content.beginText();
+                content.setFont(fontBold, 10);
+                content.setNonStrokingColor(COLOR_SECONDARY);
+                content.newLineAtOffset(230, titleY);
+                content.showText("CUSTOMER CHARGED");
+                content.endText();
+
+                content.beginText();
+                content.setFont(fontBold, 16);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(230, valueY);
+                content.showText(String.format("%.2f", report.customerFinalPrice));
+                content.endText();
+
+                // Column 3: Net Profit (Highlighted in Green)
                 content.setNonStrokingColor(COLOR_TOTAL_BG);
                 content.setStrokingColor(COLOR_TOTAL_BORDER);
                 content.setLineWidth(1.5f);
-                content.addRect(40, 205, 515, 60);
+                content.addRect(390, boxY, 165, boxH);
+                content.fillAndStroke();
+
+                content.beginText();
+                content.setFont(fontBold, 10);
+                content.setNonStrokingColor(COLOR_TOTAL_TEXT);
+                content.newLineAtOffset(405, titleY);
+                content.showText("NET PROFIT");
+                content.endText();
+
+                content.beginText();
+                content.setFont(fontBold, 16);
+                content.setNonStrokingColor(COLOR_TOTAL_TEXT);
+                content.newLineAtOffset(405, valueY);
+                content.showText(String.format("%.2f", profit));
+                content.endText();
+            }
+        
+
+        // NOTE: Paste your EXACT existing PDF drawing logic from your original downloadPdfReport here.
+        // Everything from defining the colors to the doc.save() call.
+        // Make sure it includes your logo loading, metadata card, ink analysis card, etc.
+        
+        doc.save(baos);
+        return baos.toByteArray();
+    }
+}
+
+private byte[] generateCustomerReport(CalculationReport report) throws Exception {
+        try (PDDocument doc = new PDDocument(); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            doc.addPage(page);
+
+            try (PDPageContentStream content = new PDPageContentStream(doc, page)) {
+                PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+                PDType1Font fontReg = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+
+                // --- 1. COLOR PALETTE ---
+                Color COLOR_PRIMARY = new Color(30, 41, 59);
+                Color COLOR_SECONDARY = new Color(71, 85, 105);
+                Color COLOR_CARD_BG = new Color(248, 250, 252);
+                Color COLOR_CARD_BORDER = new Color(226, 232, 240);
+                Color COLOR_TOTAL_BG = new Color(240, 253, 244);
+                Color COLOR_TOTAL_BORDER = new Color(34, 197, 94);
+                Color COLOR_TOTAL_TEXT = new Color(21, 128, 61);
+
+
+                 // --- 2. LOGO RESOLUTION & PLACEMENT ---
+                Path logoStorageDir = Paths.get(System.getProperty("user.home"), ".ink_estimator", "logo");
+                Path pngPath = logoStorageDir.resolve("shop-logo.png");
+                Path jpgPath = logoStorageDir.resolve("shop-logo.jpg");
+                
+                PDImageXObject pdImage = null;
+
+                if (Files.exists(pngPath)) {
+                    pdImage = PDImageXObject.createFromFileByContent(pngPath.toFile(), doc);
+                } else if (Files.exists(jpgPath)) {
+                    pdImage = PDImageXObject.createFromFileByContent(jpgPath.toFile(), doc);
+                } else {
+                    ClassPathResource defaultLogo = new ClassPathResource("static/default-logo.png");
+                    if (defaultLogo.exists()) {
+                        byte[] logoBytes = StreamUtils.copyToByteArray(defaultLogo.getInputStream());
+                        pdImage = PDImageXObject.createFromByteArray(doc, logoBytes, "default-logo");
+                    }
+                }
+
+                if (pdImage != null) {
+                    float maxWidth = 130f;
+                    float maxHeight = 45f;
+                    float imgWidth = pdImage.getWidth();
+                    float imgHeight = pdImage.getHeight();
+
+                    float scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+                    float drawWidth = imgWidth * scale;
+                    float drawHeight = imgHeight * scale;
+
+                    float xPos = 595f - 40f - drawWidth; 
+                    float yPos = 842f - 40f - drawHeight; 
+
+                    content.drawImage(pdImage, xPos, yPos, drawWidth, drawHeight);
+                }
+
+                // --- 2. HEADER & SUBTITLE ---
+                content.beginText();
+                content.setFont(fontBold, 18);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(40, 770);
+                content.showText("Print Job Estimate");
+                content.endText();
+
+                content.beginText();
+                content.setFont(fontReg, 10);
+                content.setNonStrokingColor(COLOR_SECONDARY);
+                content.newLineAtOffset(40, 755);
+                content.showText("Customer Quotation & Job Details");
+                content.endText();
+
+                // Header Divider Line
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.setLineWidth(1.0f);
+                content.moveTo(40, 742);
+                content.lineTo(555, 742);
+                content.stroke();
+
+                // --- 3. METADATA CARD (JOB DETAILS) ---
+                content.setNonStrokingColor(COLOR_CARD_BG);
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.addRect(40, 615, 515, 110);
+                content.fillAndStroke();
+
+                // Left Column: Core File Info
+                String rawFileName = (report.fileName != null) ? report.fileName : "Unknown File";
+                List<String> fileNameLines = wrapText("File Name: " + rawFileName, fontReg, 10f, 240f);
+
+                content.beginText();
+                content.setFont(fontReg, 10);
+                content.setLeading(14f);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(55, 705);
+                content.showText("Job ID: " + report.jobId); content.newLine();
+                
+                int fnCount = 0;
+                for (String fnLine : fileNameLines) {
+                    if (fnCount >= 2) {
+                        content.showText("...");
+                        content.newLine();
+                        break;
+                    }
+                    content.showText(fnLine); content.newLine();
+                    fnCount++;
+                }
+                
+                content.showText("Target Paper Size: " + report.targetPaperSize); content.newLine();
+                content.showText("Total Document Pages: " + report.totalPages);
+                content.endText();
+
+                // Right Column: Page Range Breakdowns
+                String monoStr = "Mono Pages: " + formatPageRanges(report.monoPages);
+                String colorStr = "Color Pages: " + formatPageRanges(report.colorPages);
+
+                List<String> monoLines = wrapText(monoStr, fontReg, 10f, 230f);
+                List<String> colorLines = wrapText(colorStr, fontReg, 10f, 230f);
+
+                content.beginText();
+                content.setFont(fontReg, 10);
+                content.setLeading(14f);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(310, 705);
+
+                int mCount = 0;
+                for (String line : monoLines) {
+                    if (mCount >= 2) {
+                        content.showText(line + "...");
+                        content.newLine();
+                        break;
+                    }
+                    content.showText(line); content.newLine();
+                    mCount++;
+                }
+
+                int cCount = 0;
+                for (String line : colorLines) {
+                    if (cCount >= 2) {
+                        content.showText(line + "...");
+                        content.newLine();
+                        break;
+                    }
+                    content.showText(line); content.newLine();
+                    cCount++;
+                }
+
+                content.showText(String.format("Pages Analyzed: %d (Mono: %d, Color: %d)",
+                        report.totalPages, report.monoPagesCount, report.colorPagesCount)); 
+                content.endText();
+
+                // --- 4. ORDER SUMMARY CARD ---
+                content.beginText();
+                content.setFont(fontBold, 12);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(40, 580);
+                content.showText("Order Summary");
+                content.endText();
+
+                content.setNonStrokingColor(COLOR_CARD_BG);
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.addRect(40, 480, 515, 85);
+                content.fillAndStroke();
+
+                content.beginText();
+                content.setFont(fontReg, 10);
+                content.setLeading(16f);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(55, 545);
+                
+                content.showText("Finishing Services: " + (report.finishingCost > 0 ? String.format("%.2f", report.finishingCost) : "None")); content.newLine();
+                content.showText("Discount Applied: " + (report.discountPercentage > 0 ? String.format("%.1f%%", report.discountPercentage) : "0.0%")); content.newLine();
+                if (report.minimumFee > 0) {
+                    content.showText(String.format("Minimum Order Fee Threshold: %.2f", report.minimumFee));
+                } else {
+                    content.showText("Standard Pricing Tier Applied");
+                }
+                content.endText();
+
+                // --- 5. GRAND TOTAL CALLOUT BOX ---
+                content.setNonStrokingColor(COLOR_TOTAL_BG);
+                content.setStrokingColor(COLOR_TOTAL_BORDER);
+                content.setLineWidth(1.5f);
+                content.addRect(40, 390, 515, 60);
                 content.fillAndStroke();
 
                 content.beginText();
                 content.setFont(fontBold, 11);
                 content.setNonStrokingColor(COLOR_TOTAL_TEXT);
-                content.newLineAtOffset(60, 240);
+                content.newLineAtOffset(60, 425);
                 content.showText("TOTAL ESTIMATED COST");
                 content.endText();
 
                 content.beginText();
                 content.setFont(fontBold, 18);
                 content.setNonStrokingColor(COLOR_TOTAL_TEXT);
-                content.newLineAtOffset(60, 218);
-                content.showText(String.format("%.2f", report.finalCost));
+                content.newLineAtOffset(60, 403);
+                content.showText(String.format("%.2f", report.customerFinalPrice));
                 content.endText();
-
             }
 
-            // Save PDF into ByteArrayOutputStream
             doc.save(baos);
-
-            // Clean attachment filename header
-            String safeFileName = (report.fileName != null ? report.fileName : "Document")
-                    .replaceAll("[^a-zA-Z0-9.-]", "_");
-            String downloadFileName = "SHOP_EST_RPT_" + safeFileName + "_" + jobId + ".pdf";
-
-            byte[] pdfBytes = baos.toByteArray();
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentLength(pdfBytes.length);
-            headers.setContentDisposition(
-                    ContentDisposition.attachment()
-                            .filename(downloadFileName)
-                            .build()
-            );
-
-            return ResponseEntity.ok()
-                    .headers(headers)
-                    .body(pdfBytes);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
+            return baos.toByteArray();
         }
     }
+
+
+
 
     // Helper: Formats list of integers into range notation (e.g. 1-5, 8-10, 12)
     private String formatPageRanges(List<Integer> pages) {
