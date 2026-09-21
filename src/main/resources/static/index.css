@@ -5,276 +5,87 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-body {
+/* 1. ABSOLUTE SCROLL LOCK ON DOCUMENT */
+html, body {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden; /* Prevents window scrollbar entirely */
     background-color: #0b132b; 
     color: #f1f5f9; 
-    min-height: 100vh;
-    padding: 40px 20px;
 }
 
+body {
+    padding: 1.5vh 1.5vw;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 2. FLEXIBLE MAIN CONTAINER */
 .container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     width: 100%;
-    /* max-width: 1000px; */
+    max-width: 1400px;
     margin: 0 auto; 
-    position: relative; 
+    height: 100%;
+    overflow: hidden;
 }
 
-/* 2-Column Grid Layout for the Form */
-.form-columns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 40px; 
-    align-items: start;
+/* --- HEADER --- */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.2vh;
+    height: 7.5vh;
+    flex-shrink: 0;
 }
 
 h1 {
-    font-size: 32px;
-    margin-bottom: 30px;
-    padding-right: 120px; 
+    font-size: clamp(20px, 4vh, 28px);
     color: #f1f5f9;
 }
 
-h3 {
-    margin: 0 0 12px 0;
-    font-size: 18px;
-    color: #f1f5f9;
+.shop-logo {
+    max-height: 100%;
+    max-width: 20vw;
+    object-fit: contain;
+    border-radius: 4px;
 }
 
-label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #cbd5e1;
-}
-
-/* Base Input Styling */
-input[type="number"],
-input[type="file"],
-input[type="text"],
-select {
-    width: 80%;
-    padding: 12px;
-    margin-bottom: 20px;
-    background-color: #38414c; 
-    color: #f1f5f9;
-    border: 1px solid #475569; 
-    border-radius: 6px;
-    font-size: 15px;
-    display: block;
-}
-
-input:focus, select:focus {
-    outline: none;
-    border-color: #3b82f6;
-}
-
-/* NEW: Puts Price and Yield on the same line */
-.input-row {
-    display: flex;
-    gap: 15px; /* Adds exactly 15px of space between the two boxes */
-    /*width: 50%;*/
-}
-
-/* Overrides the large bottom margin so the groups stay visually tight */
-.input-row input {
-    margin-bottom: 15px; 
-}
-
-
-
-hr {
-    border: none;
-    border-top: 1px solid #334155; 
-    margin: 40px 0;
-    width: 100%;
-}
-
-.form-actions {
-    margin-top: 20px;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-button {
-    padding: 12px 24px;
-    border: none;
-    border-radius: 6px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    margin-right: 12px;
-    margin-bottom: 12px;
-    transition: opacity 0.2s ease;
-}
-
-button:hover {
-    opacity: 0.85;
-}
-
-button[type="submit"] {
-    background-color: #22c55e; 
-    color: #ffffff;
-}
-
-#updateButton {
-    background-color: #d1d5db; 
-    color: #111827;
-}
-
-#clear_settings {
-    background-color: #951818; 
-    color: #ffffff;
-}
-
-
-
-#settingsStatus, #uploadStatus {
-    display: inline-block;
-    margin-top: 12px;
-    color: #ecedec; 
-    font-weight: 500;
-}
-
-#monochrome, #full_color {
-    
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-   
-}
-
-#colorType {
-    margin-bottom: 10px;
-}
-
-@media (max-width: 768px) {
-    .form-columns {
-        grid-template-columns: 1fr;
-    }
-}
-
-
-.upload-container {
-    display: flex;         /* Places children side-by-side */
-    flex-wrap: wrap;       /* Allows children to stack if the window gets too small */
-    gap: 20px;             /* Adds breathing room between the form and the status */
-    align-items: flex-start; /* Aligns both boxes to the top */
-}
-
-/* The individual sections inside the container */
-.upload-section, 
-.status-section {
-    flex: 1;               /* Tells both sections to take up equal available space */
-    min-width: 300px;      /* IMPORTANT: If the screen shrinks below 300px, they will stack vertically instead of squishing */
-}
-
-
-.status-section {
-    padding: 15px;
-    /*border: 1px dashed #ccc;
-    border-radius: 5px;*/
-    min-height: 100px;
-}
-
-
-/* --- NEW PDF JOB SETTINGS STYLES --- */
-.job-settings-form {
-     
-    padding: 25px;
-    border-radius: 8px;
-    border: 1px solid #334155;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.job-settings-form h3 {
-    margin-bottom: 20px;
-    color: #f1f5f9;
-    border-bottom: 1px solid #334155;
-    padding-bottom: 10px;
-}
-
-.job-step {
-    margin-bottom: 25px;
-}
-
-.job-step h4 {
-    margin-bottom: 10px;
-    font-size: 15px;
-    color: #cbd5e1;
-    font-weight: 600;
-}
-
-/* Force inputs inside the job form to use full width of their container */
-.job-step input[type="text"],
-.job-step select,
-.job-step input[type="file"] {
-    width: 100%; 
-    margin-bottom: 8px;
-}
-
-/* Separator for the final upload button */
-.upload-step {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px dashed #475569;
-}
-
-#paperCostdiv {
-    margin-top: 20px;
-    padding: 15px;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    width: 80%;
-    
-}
-
-/* Keeps the A4, A3, and A5 groups in a horizontal line */
-.paper-inputs-row {
-    display: flex;
-    flex-direction: row;
-    gap: 20px; /* Adjust this to change the spacing between the paper types */
-}
-
-/* Stacks the label and input vertically */
-.input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 5px; /* Adds a small breathing room between the label and the input box */
-}
-
-/* Optional: Make the labels stand out a bit more */
-.input-group label {
-    font-weight: bold;
-}
-
-
+/* --- TABS --- */
 .tab-container {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    border-bottom: 1px solid #ccc;
+    gap: 0.8vw;
+    margin-bottom: 1.5vh;
+    border-bottom: 1px solid #334155;
+    flex-shrink: 0;
 }
 
 .tab-btn {
-    padding: 10px 20px;
+    padding: 0.8vh 1.5vw;
     border: none;
-    background-color: #f1f1f1;
+    background-color: #1e293b;
+    color: #94a3b8;
     cursor: pointer;
-    font-size: 16px;
-    border-top-left-radius: 5px;
-    border-top-right-radius: 5px;
+    font-size: clamp(12px, 2vh, 15px);
+    border-radius: 6px 6px 0 0;
+    transition: all 0.2s;
 }
 
 .tab-btn.active {
-    background-color: #007bff;
+    background-color: #3b82f6;
     color: white;
     font-weight: bold;
 }
 
+/* TAB CONTENT (Controlled by JS display toggles without !important) */
 .tab-content {
-    animation: fadeIn 0.2s ease-in-out;
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+    animation: fadeIn 0.15s ease-in-out;
 }
 
 @keyframes fadeIn {
@@ -282,32 +93,254 @@ button[type="submit"] {
     to { opacity: 1; }
 }
 
-
-
-/* Aligns the title to the left and logo to the right */
-.app-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+/* --- TYPOGRAPHY & LABELS --- */
+h3 {
+    font-size: clamp(13px, 2vh, 16px);
+    margin-bottom: 0.6vh;
+    color: #f1f5f9;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 0.3vh;
 }
 
-/* Constrains the logo size so it doesn't break the layout */
-.shop-logo {
-    max-width: 8%;
-    max-height: 8%;
-    object-fit: contain;
-    border-radius: 4px;
+h4 {
+    font-size: clamp(11px, 2.5vh, 14px);
+    margin-bottom: 0.3vh;
+    color: #cbd5e1;
+    font-weight: 600;
 }
 
-.logo-upload-section p {
-    font-size: 14px;
-    color: #555;
-    margin-bottom: 10px;
-}
-
-#logoStatus {
+label {
     display: block;
-    margin-top: 10px;
-    font-weight: bold;
+    margin-bottom: 0.3vh;
+    font-size: clamp(10px, 2vh, 13px);
+    font-weight: 500;
+    color: #cbd5e1;
+}
+
+/* --- INPUTS & SELECTS --- */
+input[type="number"],
+input[type="file"],
+input[type="text"],
+select {
+    width: 100%;
+    min-width: 0;
+    padding: 0.6vh 0.6vw;
+    margin-bottom: 0.8vh;
+    background-color: #38414c; 
+    color: #f1f5f9;
+    border: 1px solid #475569; 
+    border-radius: 4px;
+    font-size: clamp(11px, 1.8vh, 14px);
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.input-row {
+    display: flex;
+    gap: 0.8vw;
+    width: 100%;
+    align-items: center;
+}
+
+.input-row > * {
+    flex: 1;
+    margin-bottom: 0 !important;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+/* --- BUTTONS --- */
+button {
+    padding: 0.8vh 1.2vw;
+    border: none;
+    border-radius: 4px;
+    font-size: clamp(11px, 2.5vh, 14px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+button:hover { opacity: 0.85; }
+button[type="submit"] { background-color: #22c55e; color: #ffffff; }
+#updateButton { background-color: #d1d5db; color: #111827; }
+#clear_settings { background-color: #951818; color: #ffffff; }
+
+/* --- TAB 1: COST CALCULATOR --- */
+.upload-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5vw;
+    height: 100%;
+    overflow: hidden;
+}
+
+.upload-section {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.job-settings-form {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.5vh 1.5vw;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    height: 100%;
+}
+
+.job-step {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.upload-step {
+    border-top: 1px dashed #475569;
+    padding-top: 1vh;
+    margin-top: 0.5vh;
+}
+
+#analyzeBtn {
+    width: 100%;
+    margin-top: 0.5vh;
+    padding: 1vh;
+}
+
+.results-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1vh;
+    height: 100%;
+    overflow: hidden;
+}
+
+.status-section {
+    flex: 1;
+    padding: 1.5vh;
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    overflow-y: auto;
+    color: #e8eeeb; 
+    font-family: monospace;
+    font-size: clamp(11px, 2.5vh, 18px);
+    white-space: pre-wrap;
+}
+
+.status-section::-webkit-scrollbar { width: 6px; }
+.status-section::-webkit-scrollbar-track { background: #1e293b; }
+.status-section::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+
+#ReportDownloadBynContainer {
+    flex-shrink: 0;
+}
+
+#downloadPdfBtn {
+    width: 100%;
+    padding: 1.5vh;
+    font-size: clamp(13px, 2.5vh, 16px);
+    background-color: #3b82f6;
+    color: white;
+}
+#downloadPdfBtn:disabled {
+    background-color: #475569;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* --- TAB 2: PRINTER SETTINGS --- */
+#inkCostForm {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: space-between;
+    overflow: hidden;
+}
+
+.form-columns {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5vw;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.left-column, .right-column {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+.field-group {
+    margin-bottom: 0.5vh;
+}
+
+#paperCostdiv {
+    padding: 1vh;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background-color: #0f172a;
+}
+
+.paper-inputs-row {
+    display: flex;
+    gap: 0.6vw;
+    width: 100%;
+}
+
+.cartridge-row {
+    margin-bottom: 0.5vh;
+}
+
+#pricingSettings {
+    padding: 1vh;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background-color: #0f172a;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #334155; 
+    margin: 1vh 0;
+    flex-shrink: 0;
+}
+
+.logo-upload-section {
+    flex-shrink: 0;
+}
+
+.logo-actions {
+    margin-top: 0.5vh;
+}
+
+.logo-actions button {
+    margin-bottom: 0 !important;
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.8vw;
+    margin-top: 1vh;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+#settingsStatus, #logoStatus {
+    display: inline-block;
+    color: #ecedec; 
+    font-weight: 500;
+    font-size: clamp(11px, 2.5vh, 13px);
 }

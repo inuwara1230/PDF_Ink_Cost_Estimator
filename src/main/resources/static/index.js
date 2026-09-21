@@ -6,12 +6,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Event Listener: Color Capability Dropdown Toggle
     document.getElementById('color_capability').addEventListener('change', function() {
         const full_color = document.getElementById('full_color');
-        const colorTypeSelect = document.getElementById('colorTypeSelect');
+        
         
         if (this.value === 'Monochrome') {
             full_color.style.display = 'none';
-            colorTypeSelect.value = 'Monochrome';
-            colorTypeSelect.disabled = true; 
+            
+            
             
             // Clear out color inputs when switching to monochrome
             document.getElementById('cyanPrice').value = '';
@@ -22,9 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('yellowYield').value = '';
         } else {
             full_color.style.display = 'block';
-            colorTypeSelect.disabled = false;
+           
         }
-        colorTypeSelect.dispatchEvent(new Event('change'));
+        
     });
 
     // 3. Event Listener: Save Button (Form Submission)
@@ -70,7 +70,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const fileInput = document.getElementById('pdfFileInput');
         const file = fileInput.files[0];
-        const colorMode = document.getElementById('colorTypeSelect').value;
+        
+        // FIX: Re-declare colorMode by pointing it to the global printer capability
+        const colorMode = document.getElementById('color_capability').value;
 
         const target = document.getElementById('targetPaperSize').value;
         const layout = document.getElementById('printMode').value;
@@ -96,11 +98,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const eventSource = new EventSource(`/api/progress/${jobID}`);
 
-        // Handle standard text updates
+        // FIX: Close the onmessage block so listeners aren't nested
         eventSource.onmessage = function(event) {
             statusText.innerHTML = event.data.replace(/\n/g, '<br>'); 
+        };
 
-            eventSource.addEventListener('COMPLETE', function(event) {
+        // FIX: COMPLETE listener sits alongside onmessage, not inside it
+        eventSource.addEventListener('COMPLETE', function(event) {
             console.log("Calculations finished!");
             eventSource.close();
 
@@ -111,10 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.href = `/api/download_pdf/${jobID}`;
                 };
             }
-            });
-        };
-
-        
+        });
 
         // Handle network drops gracefully
         eventSource.onerror = function(err) {
@@ -125,7 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData();
         formData.append('pdfDocument', file);
-        formData.append('colorCapability', colorMode);
         formData.append('jobID', jobID);
 
         formData.append('blackPrice', document.getElementById('monochrome_cost').value || '0');
@@ -149,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('finishingCost', document.getElementById('finishing_cost').value || '0');
         formData.append('discountPercentage', document.getElementById('job_discount').value || '0');
 
+        // This will now evaluate correctly without crashing
         if (colorMode !== 'Monochrome') {
             formData.append('cyanPrice', document.getElementById('cyanPrice').value || '0');
             formData.append('cyanYield', document.getElementById('cyanYield').value || '1');
@@ -199,7 +200,7 @@ function getSettingsFormData() {
         yellowPrice: document.getElementById('yellowPrice').value ? parseFloat(document.getElementById('yellowPrice').value) : null,
         yellowYield: document.getElementById('yellowYield').value ? parseInt(document.getElementById('yellowYield').value, 10) : null,
         
-        printJobColorType: document.getElementById('colorTypeSelect').value,
+        
         
         a4Cost: parseFloat(document.getElementById('A4').value) || 0.0,
         a3Cost: parseFloat(document.getElementById('A3').value) || 0.0,
@@ -279,7 +280,8 @@ async function loadSavedSettings() {
             document.getElementById('yellowPrice').value = data.yellowPrice ?? '';
             document.getElementById('yellowYield').value = data.yellowYield ?? '';
             
-            document.getElementById('colorTypeSelect').value = data.printJobColorType || 'fullColor';
+            // FIX: Commented out to prevent TypeError crashes
+            // document.getElementById('colorTypeSelect').value = data.printJobColorType || 'fullColor';
 
             document.getElementById('A4').value = data.a4Cost ?? '';
             document.getElementById('A3').value = data.a3Cost ?? '';
@@ -289,7 +291,7 @@ async function loadSavedSettings() {
             // Sync visible sections according to restored color capability
             document.getElementById('color_capability').dispatchEvent(new Event('change'));
 
-            // Inside loadSavedSettings() in index.js[cite: 6]
+            // Inside loadSavedSettings() in index.js[cite: 16]
             document.getElementById('markup_percentage').value = data.markupPercentage ?? 100;
             document.getElementById('minimum_fee').value = data.minimumFee ?? 0;
             document.getElementById('finishing_cost').value = data.finishingCost ?? 0;

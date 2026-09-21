@@ -61,8 +61,8 @@ public class printerSettings {
 
     // --- Print Job Preferences ---
     // Maps to printing in black & white or full color selection[cite: 3]
-    @Column(name = "print_job_color_type", nullable = false)
-    private String printJobColorType;
+    //@Column(name = "print_job_color_type", nullable = false)
+    //private String printJobColorType;
 
     // Maps to cost per paper input[cite: 3]
     @Column(name = "A4_cost", nullable = false)
@@ -140,8 +140,7 @@ public class printerSettings {
     public Integer getYellowYield() { return yellowYield; }
     public void setYellowYield(Integer yellowYield) { this.yellowYield = yellowYield; }
 
-    public String getPrintJobColorType() { return printJobColorType; }
-    public void setPrintJobColorType(String printJobColorType) { this.printJobColorType = printJobColorType; }
+
 
     public Double getA4Cost() { return a4Cost; }
     public void setA4Cost(Double a4Cost) { this.a4Cost = a4Cost; }

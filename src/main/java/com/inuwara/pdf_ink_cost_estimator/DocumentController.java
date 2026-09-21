@@ -55,7 +55,9 @@ public class DocumentController {
         public double inkCostAfterNup;
         public int numberOfPagesAfterNup;
         public double totalPaperCost;
-        public double finalCost;
+
+        public int finalCost;
+
         public long processingTimeSeconds;
         public String targetPaperSize;
         public String printLayout;
@@ -68,7 +70,9 @@ public class DocumentController {
         public double minimumFee;
         public double finishingCost;
         public double discountPercentage;
-        public double customerFinalPrice;
+        public double tieredMultiplier;
+        public int customerFinalPrice;
+        public int Shop_profit;
     }
 
     @GetMapping(value = "/progress/{jobId}", produces = "text/event-stream")
@@ -86,7 +90,7 @@ public class DocumentController {
     @PostMapping("/upload_pdf")
     public ResponseEntity<String> handlePdfUpload(
         @RequestParam("pdfDocument") MultipartFile file,
-        @RequestParam(value = "colorCapability", required = false, defaultValue = "color") String colorCapability,
+        // @RequestParam(value = "colorCapability", required = false, defaultValue = "color") String colorCapability,
         @RequestParam(value = "jobID", required = false) String jobID,
         @RequestParam(value = "blackPrice", required = false, defaultValue = "0") double blackPrice,
         @RequestParam(value = "blackYield", required = false, defaultValue = "1") double blackYield,
@@ -118,7 +122,8 @@ public class DocumentController {
             double fileSizeInBytes = file.getSize();
             String fileName = file.getOriginalFilename();
             byte[] fileBytes = file.getBytes();
-            new Thread(() -> processPDFinBackground(fileBytes, fileName, colorCapability, jobID,
+            // Ignore the color capability for now
+            new Thread(() -> processPDFinBackground(fileBytes, fileName, jobID,
                  fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield,
                   magentaPrice, magentaYield, yellowPrice, yellowYield, a4Cost, a3Cost, a5Cost, legalCost,
                 targetPaperSize, printLayout, duplexMode, colorPageRange, monochromePageRange, markupPercentage, minimumFee, finishingCost, discountPercentage)).start();
@@ -129,7 +134,7 @@ public class DocumentController {
         }
     }
 
-    private void processPDFinBackground(byte[] fileBytes, String fileName, String colorCapability, 
+    private void processPDFinBackground(byte[] fileBytes, String fileName, 
         String jobId, double fileSizeInBytes, double blackPrice, double blackYield,
         double isoCoverage, double cyanPrice, double cyanYield, double magentaPrice, 
         double magentaYield, double yellowPrice, double yellowYield, double a4Cost, double a3Cost, double a5Cost, double legalCost,
@@ -250,8 +255,9 @@ public class DocumentController {
             }; 
 
             long processingTime = (System.currentTimeMillis() - startTime) / 1000;
-            double finalCost = ink_cost_after_N_up + totalPaperCost;
-           
+
+            int finalCost = (int) Math.ceil((ink_cost_after_N_up + totalPaperCost));
+
             Double tiered_Multiplier = 1.0;
             if (finalCost < 50) {
                 tiered_Multiplier = 1.2; 
@@ -276,10 +282,18 @@ public class DocumentController {
             }
             double markedUpCost = finalCost * (1+(markupPercentage / 100.0)*tiered_Multiplier);
             double subtotal = markedUpCost + finishingCost;
+
             if (subtotal < minimumFee) {
                 subtotal = minimumFee;
             }
-            double customerFinalPrice = subtotal - (subtotal * (discountPercentage / 100.0));
+
+            Double customerPrice_before_ceiling = subtotal - (subtotal * (discountPercentage / 100.0));
+
+            System.out.println("Subtotal before discount: " + customerPrice_before_ceiling);
+
+            int customerFinalPrice = (int) Math.ceil(customerPrice_before_ceiling);
+
+            int Shop_profit = customerFinalPrice - finalCost;
 
             // Store calculation output in memory for PDF generation
             CalculationReport report = new CalculationReport();
@@ -315,6 +329,8 @@ public class DocumentController {
             report.finishingCost = finishingCost;
             report.discountPercentage = discountPercentage;
             report.customerFinalPrice = customerFinalPrice;
+            report.Shop_profit = Shop_profit;
+            report.tieredMultiplier = tiered_Multiplier;
 
             reports.put(jobId, report);
 
@@ -323,24 +339,25 @@ public class DocumentController {
                     "Mono Pages: %d | Color Pages: %d\n" +
                     "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%, K: %.2f%%\n" +
                     "Processing Time: %d s\n\n" +
-                    "Tiered Multiplier: %.2f\n" +
                     "Ink Cost after scalling: %.2f\n" +
                     "Ink Cost after N-up: %.2f\n\n" +
                     "number of Sheets after N-up: %d\n" +
                     "Cost per Sheet: %.2f\n" +
                     "Total Paper Cost: %.2f\n" +
-                    "Final Cost(Ink + Paper): %.2f\n\n"+
+                    "Tiered Multiplier: %.2f\n" +
+                    "Final Cost(Ink + Paper): %d\n\n"+
                     "Markup: %.2f%%\n" +
                     "Minimum Fee: %.2f\n" +
                     "Finishing Cost: %.2f\n" +
                     "Discount: %.2f%%\n\n" +
-                    "Customer Final Price: %.2f",
+                    "Customer Final Price: %d\n" +
+                    "Shop Profit: %d",
                     fileSizeInMB, allPages.size(), totalPages,
                     monoPages.size(), colorPages.size(),
                     totalCyan, totalMagenta, totalYellow, totalBlack,
-                    processingTime,tiered_Multiplier, totalInkCost, ink_cost_after_N_up,
-                    numberOfpagesAfterNup, costOfASingle_PaperSheet, totalPaperCost, finalCost,
-                     markupPercentage, minimumFee, finishingCost, discountPercentage, customerFinalPrice);
+                    processingTime, totalInkCost, ink_cost_after_N_up,
+                    numberOfpagesAfterNup, costOfASingle_PaperSheet, totalPaperCost, tiered_Multiplier,finalCost,
+                     markupPercentage, minimumFee, finishingCost, discountPercentage, customerFinalPrice, Shop_profit);
 
             emitter.send(summaryMessage);
 
@@ -373,7 +390,7 @@ public ResponseEntity<byte[]> downloadPdfReport(@PathVariable String jobId) {
 
         // 2. Generate and add Customer Report to ZIP
         byte[] customerPdf = generateCustomerReport(report);
-        zos.putNextEntry(new ZipEntry("CUSTOMER_RPT_"+report.fileName + jobId + ".pdf"));
+        zos.putNextEntry(new ZipEntry("CUST_RPT_"+report.fileName + jobId + ".pdf"));
         zos.write(customerPdf);
         zos.closeEntry();
 
@@ -611,13 +628,13 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.newLineAtOffset(55, 342);
                 content.showText(String.format("Physical Sheets Required: %d", report.numberOfPagesAfterNup)); content.newLine();
                 content.showText(String.format("Cost per Sheet: %.2f", report.costOfASingle_PaperSheet)); content.newLine();
-                content.showText(String.format("Total Paper Cost: %.2f", report.totalPaperCost));
+                content.showText(String.format("Total Paper Cost: %.2f", report.totalPaperCost));content.newLine();
+                content.showText(String.format("Tiered multiplier: %.2f", report.tieredMultiplier));
                 content.endText();
 
                 
 
-               // Calculate the profit
-                double profit = report.customerFinalPrice - report.finalCost;
+              
 
                 // --- 8. FINANCIAL SUMMARY (3-COLUMN DASHBOARD) ---
                 float boxY = 195f;
@@ -643,7 +660,7 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.setFont(fontBold, 16);
                 content.setNonStrokingColor(COLOR_PRIMARY);
                 content.newLineAtOffset(55, valueY);
-                content.showText(String.format("%.2f", report.finalCost));
+                content.showText(String.format("%.2f", (double) report.finalCost));
                 content.endText();
 
                 // Column 2: Customer Charged (After Markup/Discounts)
@@ -664,7 +681,7 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.setFont(fontBold, 16);
                 content.setNonStrokingColor(COLOR_PRIMARY);
                 content.newLineAtOffset(230, valueY);
-                content.showText(String.format("%.2f", report.customerFinalPrice));
+                content.showText(String.format("%.2f", (double) report.customerFinalPrice));
                 content.endText();
 
                 // Column 3: Net Profit (Highlighted in Green)
@@ -685,7 +702,7 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.setFont(fontBold, 16);
                 content.setNonStrokingColor(COLOR_TOTAL_TEXT);
                 content.newLineAtOffset(405, valueY);
-                content.showText(String.format("%.2f", profit));
+                content.showText(String.format("%.2f", (double) report.Shop_profit));
                 content.endText();
             }
         
@@ -892,7 +909,7 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 content.setFont(fontBold, 18);
                 content.setNonStrokingColor(COLOR_TOTAL_TEXT);
                 content.newLineAtOffset(60, 403);
-                content.showText(String.format("%.2f", report.customerFinalPrice));
+                content.showText(String.format("%.2f", (double) report.customerFinalPrice));
                 content.endText();
             }
 

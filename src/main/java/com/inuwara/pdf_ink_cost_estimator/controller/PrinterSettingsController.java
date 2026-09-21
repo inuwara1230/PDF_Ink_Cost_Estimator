@@ -69,7 +69,7 @@ public class PrinterSettingsController {
             settingsToUpdate.setMagentaYield(updatedSettings.getMagentaYield());
             settingsToUpdate.setYellowPrice(updatedSettings.getYellowPrice());
             settingsToUpdate.setYellowYield(updatedSettings.getYellowYield());
-            settingsToUpdate.setPrintJobColorType(updatedSettings.getPrintJobColorType());
+            
             
             settingsToUpdate.setA4Cost(updatedSettings.getA4Cost());
             settingsToUpdate.setA3Cost(updatedSettings.getA3Cost());

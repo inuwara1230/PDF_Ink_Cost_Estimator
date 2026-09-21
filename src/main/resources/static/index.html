@@ -9,7 +9,7 @@
     <body>
         <div class="container">
             
-            
+            <!-- HEADER -->
             <div class="app-header">
                 <h1>Ink 2 Cost</h1>
                 <img id="shopLogo" class="shop-logo" src="/api/logo" alt="Shop Logo">
@@ -22,8 +22,10 @@
             </div>
             
             <!-- TAB 1: COST CALCULATOR (DEFAULT ACTIVE TAB) -->
-            <div id="calculatorTab" class="tab-content active">
+            <div id="calculatorTab" class="tab-content">
                 <div class="upload-container">
+                    
+                    <!-- LEFT COLUMN: SETTINGS FORM -->
                     <div class="upload-section">
                         <form id="uploadForm" class="job-settings-form">
                             <h3>PDF Job Settings & Estimation</h3>
@@ -43,7 +45,7 @@
                             <div class="job-step">
                                 <h4>2. Layout & Sides</h4>
                                 <div class="input-row">
-                                    <div style="flex: 1;">
+                                    <div class="input-group">
                                         <label for="printMode">Print Mode:</label>
                                         <select id="printMode" name="printMode">
                                             <option value="standard">Standard (1-Up)</option>
@@ -52,7 +54,7 @@
                                             <option value="4up">4-Up (4 slides per sheet)</option>
                                         </select>
                                     </div>
-                                    <div style="flex: 1;">
+                                    <div class="input-group">
                                         <label for="duplexMode">Sides:</label>
                                         <select id="duplexMode" name="duplexMode">
                                             <option value="simplex">Single-Sided</option>
@@ -71,6 +73,8 @@
                                 <label for="monoPages">Monochrome Pages (e.g., 2-3, 7-11):</label>
                                 <input type="text" id="monoPages" placeholder="Leave empty to analyze all pages" name="monoPages">
                             </div>
+
+                            <!-- STEP 4: Job Adjustments -->
                             <div class="job-step">
                                 <h4>4. Job Adjustments</h4>
                                 <label for="job_discount">Customer Discount (%):</label>
@@ -81,71 +85,75 @@
                             <div class="job-step upload-step">
                                 <h4>5. Upload Document</h4>
                                 <input type="file" id="pdfFileInput" accept="application/pdf" required>
-                                <button type="submit" style="width: 100%; margin-top: 15px;">Analyze PDF & Calculate Job Cost</button>
+                                <button type="submit" id="analyzeBtn">Analyze PDF & Calculate Job Cost</button>
                             </div>
                         </form>
                     </div>
                     
-                    <div id="uploadStatus" class="status-section">
-                        <!-- Status messages will appear here -->
-                    </div>
-                     <div id="ReportDownloadBynContainer" style="margin-top: 20px;">
-                        <button id="downloadPdfBtn" disabled>Download Cost Report PDF</button>
+                    <!-- RIGHT COLUMN: STATUS AND DOWNLOAD -->
+                    <div class="results-section">
+                        <div id="uploadStatus" class="status-section">
+                            <!-- Status messages will appear here -->
+                        </div>
+                        <div id="ReportDownloadBynContainer">
+                            <button id="downloadPdfBtn" disabled>Download Cost Report PDF</button>
+                        </div>
                     </div>
                     
                 </div>
-
-                <div id="result"></div>
-               
-                
             </div>
 
-            <!-- TAB 2: PRINTER SETTINGS (HIDDEN BY DEFAULT) -->
+            <!-- TAB 2: PRINTER SETTINGS (HIDDEN BY DEFAULT VIA INLINE STYLE FOR JS TOGGLE) -->
             <div id="printerTab" class="tab-content" style="display: none;">
                 <form id="inkCostForm">
                     
-                    <!-- WRAPPER FOR 2 COLUMNS -->
+                    <!-- 2 COLUMNS WRAPPER -->
                     <div class="form-columns">
                         
                         <!-- LEFT SIDE -->
                         <div class="left-column">
-                            <label for="printer_type">Printer Type:</label>
-                            <select id="printer_type" name="printer_type">
-                                <option value="inkjet">Inkjet</option>
-                                <option value="laser">Laser</option>
-                            </select>
+                            <div class="field-group">
+                                <label for="printer_type">Printer Type:</label>
+                                <select id="printer_type" name="printer_type">
+                                    <option value="inkjet">Inkjet</option>
+                                    <option value="laser">Laser</option>
+                                </select>
+                            </div>
                             
-                            <label for="covarage_percentage">ISO Coverage %:</label>
-                            <input type="number" id="covarage_percentage" value="5" name="covarage_percentage" title='The percentage of the page that will be covered by ink according to ISO standards specified by the manufacturer' placeholder="Coverage percentage" required>
+                            <div class="field-group">
+                                <label for="covarage_percentage">ISO Coverage %:</label>
+                                <input type="number" id="covarage_percentage" value="5" name="covarage_percentage" title="ISO standards coverage percentage" placeholder="Coverage percentage" required>
+                            </div>
 
-                            <label for="color_capability">Printer Color Capability:</label>
-                            <select id="color_capability" name="color_capability">
-                                <option value="color">Full Color (CMYK)</option>
-                                <option value="Monochrome">Monochrome (Black & White)</option>
-                            </select>
+                            <div class="field-group">
+                                <label for="color_capability">Printer Color Capability:</label>
+                                <select id="color_capability" name="color_capability">
+                                    <option value="color">Full Color (CMYK)</option>
+                                    <option value="Monochrome">Monochrome (Black & White)</option>
+                                </select>
+                            </div>
 
-                            <div id="colorType">
+                            <!-- Color Type Selection -->
+                            <!--<div id="colorType" class="field-group">
                                 <h3>Are you printing in black & white or full color?</h3>
                                 <select id="colorTypeSelect" name="colorTypeSelect">
                                     <option value="fullColor">Full Color</option>
                                     <option value="Monochrome">Black & White</option>
                                 </select>
                             </div>
+                            -->
                             
                             <div id="paperCostdiv">
                                 <h3>Paper Costs</h3>
-
                                 <div class="paper-inputs-row">
                                     <div class="input-group">
                                         <label for="A4">A4:</label>
                                         <input type="number" id="A4" min="0" step="any" name="paperCost" placeholder="Price" required>
                                     </div>
-
                                     <div class="input-group">
                                         <label for="A3">A3:</label>
                                         <input type="number" id="A3" min="0" step="any" name="paperCost" placeholder="Price" required>
                                     </div>
-
                                     <div class="input-group">
                                         <label for="A5">A5:</label>
                                         <input type="number" id="A5" min="0" step="any" name="paperCost" placeholder="Price" required>
@@ -156,9 +164,6 @@
                                     </div>
                                 </div>
                             </div>
-                            
-
-
                         </div>
 
                         <!-- RIGHT SIDE -->
@@ -167,71 +172,75 @@
                                 <h3>Black Cartridge</h3>
                                 <div class="input-row">
                                     <input type="number" id="monochrome_cost" min="0" step="any" name="monochrome_cost" placeholder="Price" required>
-                                    <input type="number" id="monochrome_yield" min="0" step="any" name="monochrome_yield" title="how many papers can a single catridge be used for?" placeholder="Yield" required>
+                                    <input type="number" id="monochrome_yield" min="0" step="any" name="monochrome_yield" title="Yield" placeholder="Yield" required>
                                 </div>
                             </div>
 
                             <div id="full_color">
                                 <h3>Color Cartridges</h3>
-                
-                                <label>Cyan:</label>
-                                <div class="input-row">
-                                    <input type="number" id="cyanPrice" min="0" step="any" placeholder="Price">
-                                    <input type="number" id="cyanYield" min="0" step="any" title="how many papers can a single catridge be used for?" placeholder="Yield">
+                                <div class="cartridge-row">
+                                    <label>Cyan:</label>
+                                    <div class="input-row">
+                                        <input type="number" id="cyanPrice" min="0" step="any" placeholder="Price">
+                                        <input type="number" id="cyanYield" min="0" step="any" placeholder="Yield">
+                                    </div>
                                 </div>
-
-                                <label>Magenta:</label>
-                                <div class="input-row">
-                                    <input type="number" id="magentaPrice" min="0" step="any" placeholder="Price">
-                                    <input type="number" id="magentaYield" min="0" step="any" title="how many papers can a single catridge be used for?" placeholder="Yield">
+                                <div class="cartridge-row">
+                                    <label>Magenta:</label>
+                                    <div class="input-row">
+                                        <input type="number" id="magentaPrice" min="0" step="any" placeholder="Price">
+                                        <input type="number" id="magentaYield" min="0" step="any" placeholder="Yield">
+                                    </div>
                                 </div>
-
-                                <label>Yellow:</label>
-                                <div class="input-row">
-                                    <input type="number" id="yellowPrice" min="0" step="any" placeholder="Price">
-                                    <input type="number" id="yellowYield" min="0" step="any" title="how many papers can a single catridge be used for?" placeholder="Yield">
+                                <div class="cartridge-row">
+                                    <label>Yellow:</label>
+                                    <div class="input-row">
+                                        <input type="number" id="yellowPrice" min="0" step="any" placeholder="Price">
+                                        <input type="number" id="yellowYield" min="0" step="any" placeholder="Yield">
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Place inside <div class="left-column"> in index.html[cite: 5] -->
-                            <div id="pricingSettings" style="margin-top: 15px;">
+                            <div id="pricingSettings">
                                 <h3>Profit & Pricing Strategy</h3>
-
-                                <label for="markup_percentage">Markup Percentage (%):</label>
-                                <input type="number" id="markup_percentage" name="markup_percentage" min="0" step="any" placeholder="e.g. 100 for 100%" value="100" required>
-                            
-                                <label for="minimum_fee">Minimum Job Fee:</label>
-                                <input type="number" id="minimum_fee" name="minimum_fee" min="0" step="any" placeholder="e.g. 50" value="0" required>
-                                
-                                <label for="finishing_cost">Finishing Fee:</label>
-                                <input type="number" id="finishing_cost" min="0" step="any" placeholder="0" value="0">
-
+                                <div class="input-row">
+                                    <div class="input-group">
+                                        <label for="markup_percentage">Markup (%):</label>
+                                        <input type="number" id="markup_percentage" name="markup_percentage" min="0" step="any" placeholder="100" value="100" required>
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="minimum_fee">Minimum Fee:</label>
+                                        <input type="number" id="minimum_fee" name="minimum_fee" min="0" step="any" placeholder="50" value="0" required>
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="finishing_cost">Finishing Fee:</label>
+                                        <input type="number" id="finishing_cost" min="0" step="any" placeholder="0" value="0">
+                                    </div>
+                                </div>
                             </div>
-
                         </div>
                     </div>
 
                     <hr>
+                    
+                    <!-- BOTTOM ACTIONS -->
                     <div class="logo-upload-section">
-                        <h3>Custom Logo</h3>
-                        <p>Upload a custom shop logo (PNG or JPG) </p>
-                        <div class="input-row">
+                        <h3>Custom Logo Upload (PNG / JPG)</h3>
+                        <div class="input-row logo-actions">
                             <input type="file" id="logoInput" accept="image/png, image/jpeg">
                             <button type="button" onclick="uploadLogo()">Upload Logo</button>
+                            <span id="logoStatus"></span>
                         </div>
-                        <span id="logoStatus"></span>
                     </div>
 
-                    <!-- BUTTONS AT THE BOTTOM OF SETTINGS -->
                     <div class="form-actions">
-                        <button type="submit">save settings</button>
-                        <button type="button" id="updateButton">update settings</button>
+                        <button type="submit">Save Settings</button>
+                        <button type="button" id="updateButton">Update Settings</button>
                         <button type="button" id="clear_settings">Clear Settings</button>
                         <span id="settingsStatus"></span>
                     </div>
                 </form>
             </div>
-
         </div>
         <script src="index.js"></script>
     </body>
