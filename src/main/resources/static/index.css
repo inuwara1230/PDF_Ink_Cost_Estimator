@@ -32,7 +32,7 @@ body {
 
 .app-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     margin-bottom: 1.2vh;
     height: 7.5vh;
@@ -307,11 +307,12 @@ button[type="submit"] { background-color: #22c55e; color: #ffffff; }
     margin-bottom: 0.5vh;
 }
 
-#pricingSettings {
+#pricingSettings,#shopSettings {
     padding: 1vh;
     border: 1px solid #334155;
     border-radius: 6px;
     background-color: #0f172a;
+    margin-bottom: 0.5vh;
 }
 
 hr {
@@ -388,9 +389,9 @@ hr {
 }
 
 .custom-paper-item .edit-btn {
-    background-color: #f59e0b;
+    background-color: #939393;
 }
 
 .custom-paper-item .delete-btn {
-    background-color: #ef4444;
+    background-color: #810101;
 }

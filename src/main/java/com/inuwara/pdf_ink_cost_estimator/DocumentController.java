@@ -110,7 +110,8 @@ public class DocumentController {
         @RequestParam (value = "markupPercentage", required = false, defaultValue = "100") double markupPercentage,
         @RequestParam (value = "minimumFee", required = false, defaultValue = "0") double minimumFee,
         @RequestParam (value = "finishingCost", required = false, defaultValue = "0") double finishingCost,
-        @RequestParam (value = "discountPercentage", required = false, defaultValue = "0") double discountPercentage)
+        @RequestParam (value = "discountPercentage", required = false, defaultValue = "0") double discountPercentage,
+        @RequestParam (value = "nUpFactor", required = false, defaultValue = "1") double nUpFactor)
     {
         if (file.isEmpty()) return ResponseEntity.badRequest().body("File is empty.");
         if (!"application/pdf".equals(file.getContentType())) return ResponseEntity.badRequest().body("Only PDF files are allowed.");
@@ -123,7 +124,7 @@ public class DocumentController {
                  fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield,
                   magentaPrice, magentaYield, yellowPrice, yellowYield,
                 targetPaperSize, targetPaperArea, targetPaperCost, printLayout, duplexMode, colorPageRange,
-                 monochromePageRange, markupPercentage, minimumFee, finishingCost, discountPercentage)).start();
+                 monochromePageRange, markupPercentage, minimumFee, finishingCost, discountPercentage, nUpFactor)).start();
             return ResponseEntity.ok("Upload received, processing started...");
         } catch (Exception e) {
             e.printStackTrace();
@@ -137,7 +138,7 @@ public class DocumentController {
         double magentaYield, double yellowPrice, double yellowYield,
         String targetPaperSize, double targetPaperArea, double targetPaperCost,
         String printLayout, String duplexMode, String colorPageRange, String monochromePageRange,
-        double markupPercentage, double minimumFee, double finishingCost, double discountPercentage) {
+        double markupPercentage, double minimumFee, double finishingCost, double discountPercentage, double nUpFactor) {
 
         SseEmitter emitter = emitters.get(jobId);
         if (emitter == null) return;
@@ -227,14 +228,23 @@ public class DocumentController {
             int N_up = switch (printLayout) {
                 case "booklet", "2up" -> 2;
                 case "4up" -> 4;
+                case "6up" -> 6;
+                case "8up" -> 8;
+                case "9up" -> 9;
+                case "16up" -> 16;
+                case "custom" -> (int) nUpFactor;
                 default -> 1;
             };
+
+            System.out.println("N-up factor: " + N_up); 
+            System.out.println("printLayout: " + printLayout);
             double ink_cost_after_N_up = totalInkCost / N_up;
 
             int duplexFactor = "duplex".equalsIgnoreCase(duplexMode) ? 2 : 1;
+
             int numberOfpagesAfterNup = (int) Math.ceil((double) allPages.size() / (N_up * duplexFactor));
 
-            System.out.println("paper cost " + targetPaperCost +"|" +"target paper name " + targetPaperSize + " | target page area" + targetPaperArea);
+            System.out.println("paper cost: " + targetPaperCost +"|" +"target paper name: " + targetPaperSize + " | target page area: " + targetPaperArea);
 
             // Dynamically computed total paper cost
             double totalPaperCost = numberOfpagesAfterNup * targetPaperCost;

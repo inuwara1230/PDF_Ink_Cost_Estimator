@@ -11,7 +11,7 @@
             
             <!-- HEADER -->
             <div class="app-header">
-                <h1>Ink 2 Cost</h1>
+                
                 <img id="shopLogo" class="shop-logo" src="/api/logo" alt="Shop Logo">
             </div>
             
@@ -49,8 +49,20 @@
                                             <option value="booklet">Booklet (Folded A5)</option>
                                             <option value="2up">2-Up (2 slides per sheet)</option>
                                             <option value="4up">4-Up (4 slides per sheet)</option>
+                                            <option value="6up">6-Up (6 slides per sheet)</option>
+                                            <option value="8up">8-Up (8 slides per sheet)</option>
+                                            <option value="9up">9-Up (9 slides per sheet)</option>
+                                            <option value="16up">16-Up (16 slides per sheet)</option>
+                                            <option value="custom">Custom N-Up...</option>
                                         </select>
                                     </div>
+                                    
+                                    <!-- Dynamic Custom N-Up Input (Hidden by default) -->
+                                    <div class="input-group" id="customNContainer" style="display: none;">
+                                        <label for="customNValue">Pages per Sheet (N):</label>
+                                        <input type="number" id="customNValue" name="customNValue" min="1" max="64" placeholder="e.g., 6, 12, 25">
+                                    </div>
+                                
                                     <div class="input-group">
                                         <label for="duplexMode">Sides:</label>
                                         <select id="duplexMode" name="duplexMode">
@@ -91,7 +103,7 @@
                     <div class="results-section">
                         <div id="uploadStatus" class="status-section"></div>
                         <div id="ReportDownloadBynContainer">
-                            <button id="downloadPdfBtn" disabled>Download Cost Report PDF</button>
+                            <button id="downloadPdfBtn" disabled>Download Cost Report PDFs</button>
                         </div>
                     </div>
                     
@@ -196,7 +208,7 @@
                             </div>
 
                             <div id="pricingSettings">
-                                <h3>Profit & Pricing Strategy</h3>
+                                <h3>Profit & Pricing </h3>
                                 <div class="input-row">
                                     <div class="input-group">
                                         <label for="markup_percentage">Markup (%):</label>
@@ -207,11 +219,32 @@
                                         <input type="number" id="minimum_fee" name="minimum_fee" min="0" step="any" placeholder="50" value="0" required>
                                     </div>
                                     <div class="input-group">
-                                        <label for="finishing_cost">Finishing Fee:</label>
+                                        <label for="finishing_cost">Handling Fee:</label>
                                         <input type="number" id="finishing_cost" min="0" step="any" placeholder="0" value="0">
                                     </div>
                                 </div>
                             </div>
+
+                           <div id="shopSettings">
+                                <h3>Shop Information</h3>
+                                <!-- Name and Phone on one row to save vertical space -->
+                                <div class="input-row">
+                                    <div class="input-group">
+                                        <label for="shop_name">Shop Name:</label>
+                                        <input type="text" id="shop_name" placeholder="e.g., QuickPrint">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="shop_phone">Phone / WhatsApp:</label>
+                                        <input type="text" id="shop_phone" placeholder="e.g., +94 77 123 4567">
+                                    </div>
+                                </div>
+                                <!-- Address on its own row -->
+                                <div class="input-group">
+                                    <label for="shop_address">Address:</label>
+                                    <input type="text" id="shop_address" placeholder="e.g., 123 Main Street, City">
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 

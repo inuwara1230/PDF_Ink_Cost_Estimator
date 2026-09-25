@@ -12,6 +12,21 @@ let editingIndex = -1; // Tracks the index of the custom paper currently being e
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Auto-load existing user settings on page load
     loadSavedSettings();
+
+    const printModeSelect = document.getElementById('printMode');
+    const customNContainer = document.getElementById('customNContainer');
+
+
+    if (printModeSelect && customNContainer) {
+            printModeSelect.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customNContainer.style.display = 'flex';
+                    document.getElementById('customNValue').focus();
+                } else {
+                    customNContainer.style.display = 'none';
+                }
+            });
+        }
     
     // 2. Event Listener: Color Capability Dropdown Toggle
     document.getElementById('color_capability').addEventListener('change', function() {
@@ -135,7 +150,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const layout = document.getElementById('printMode').value;
+        let layout = printModeSelect.value;
+        let nUpFactor = 1;
+
+        if (layout === 'custom') {
+            const customN = parseInt(document.getElementById('customNValue').value, 10);
+            nUpFactor = (!isNaN(customN) && customN > 0) ? customN : 1;
+            //layout = `${nUpFactor}`;
+        } else {
+            const match = layout.match(/^(\d+)up$/);
+            if (match) {
+                nUpFactor = parseInt(match[1], 10);
+            }
+        }
+
+        console.log("Target Paper: " + target + " | Area: " + targetArea + " | Cost: " + targetCost);
+
+        // Resolve the print layout and N-up factor
+        //const layout = document.getElementById('printMode').value;
         const sides = document.getElementById('duplexMode').value;
         const color_page_range = document.getElementById('colorPages').value;
         const monochrome_page_range = document.getElementById('monoPages').value;
@@ -191,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('targetPaperArea', targetArea);
         formData.append('targetPaperCost', targetCost);
 
-        formData.append('printLayout', layout);
+        //formData.append('printLayout', layout);
         formData.append('duplexMode', sides);
         formData.append('colorPageRange', color_page_range);
         formData.append('monochromePageRange', monochrome_page_range);
@@ -209,6 +241,14 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('yellowPrice', document.getElementById('yellowPrice').value || '0');
             formData.append('yellowYield', document.getElementById('yellowYield').value || '1');
         }
+
+        // Append resolved values to formData:
+        formData.append('printLayout', layout);
+        formData.append('nUpFactor', nUpFactor);
+
+
+
+
 
         try {
             statusText.innerText = 'Uploading...';
@@ -230,6 +270,11 @@ document.addEventListener('DOMContentLoaded', () => {
             eventSource.close();
         }
     });
+
+
+           
+
+
 });
 
 // Custom Paper Frontend Management
