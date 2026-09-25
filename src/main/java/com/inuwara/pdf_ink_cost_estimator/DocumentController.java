@@ -90,7 +90,6 @@ public class DocumentController {
     @PostMapping("/upload_pdf")
     public ResponseEntity<String> handlePdfUpload(
         @RequestParam("pdfDocument") MultipartFile file,
-        // @RequestParam(value = "colorCapability", required = false, defaultValue = "color") String colorCapability,
         @RequestParam(value = "jobID", required = false) String jobID,
         @RequestParam(value = "blackPrice", required = false, defaultValue = "0") double blackPrice,
         @RequestParam(value = "blackYield", required = false, defaultValue = "1") double blackYield,
@@ -101,11 +100,9 @@ public class DocumentController {
         @RequestParam(value = "magentaYield", defaultValue = "1") double magentaYield,
         @RequestParam(value = "yellowPrice", defaultValue = "0") double yellowPrice,
         @RequestParam(value = "yellowYield", defaultValue = "1") double yellowYield,
-        @RequestParam(value = "a4Cost", required = false, defaultValue = "0") double a4Cost,
-        @RequestParam(value = "a3Cost", required = false, defaultValue = "0") double a3Cost,
-        @RequestParam(value = "a5Cost", required = false, defaultValue = "0") double a5Cost,
-        @RequestParam(value = "legalCost", required = false, defaultValue = "0") double legalCost,
         @RequestParam(value = "targetPaperSize", required = false, defaultValue = "A4") String targetPaperSize,
+        @RequestParam(value = "targetPaperArea", required = false, defaultValue = "501135.0") double targetPaperArea,
+        @RequestParam(value = "targetPaperCost", required = false, defaultValue = "0.0") double targetPaperCost,
         @RequestParam(value = "printLayout", required = false, defaultValue = "standard") String printLayout,
         @RequestParam(value = "duplexMode", required = false, defaultValue = "simplex") String duplexMode,
         @RequestParam(value = "colorPageRange", required = false, defaultValue = "") String colorPageRange,
@@ -122,11 +119,11 @@ public class DocumentController {
             double fileSizeInBytes = file.getSize();
             String fileName = file.getOriginalFilename();
             byte[] fileBytes = file.getBytes();
-            // Ignore the color capability for now
             new Thread(() -> processPDFinBackground(fileBytes, fileName, jobID,
                  fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield,
-                  magentaPrice, magentaYield, yellowPrice, yellowYield, a4Cost, a3Cost, a5Cost, legalCost,
-                targetPaperSize, printLayout, duplexMode, colorPageRange, monochromePageRange, markupPercentage, minimumFee, finishingCost, discountPercentage)).start();
+                  magentaPrice, magentaYield, yellowPrice, yellowYield,
+                targetPaperSize, targetPaperArea, targetPaperCost, printLayout, duplexMode, colorPageRange,
+                 monochromePageRange, markupPercentage, minimumFee, finishingCost, discountPercentage)).start();
             return ResponseEntity.ok("Upload received, processing started...");
         } catch (Exception e) {
             e.printStackTrace();
@@ -137,8 +134,9 @@ public class DocumentController {
     private void processPDFinBackground(byte[] fileBytes, String fileName, 
         String jobId, double fileSizeInBytes, double blackPrice, double blackYield,
         double isoCoverage, double cyanPrice, double cyanYield, double magentaPrice, 
-        double magentaYield, double yellowPrice, double yellowYield, double a4Cost, double a3Cost, double a5Cost, double legalCost,
-        String targetPaperSize, String printLayout, String duplexMode, String colorPageRange, String monochromePageRange,
+        double magentaYield, double yellowPrice, double yellowYield,
+        String targetPaperSize, double targetPaperArea, double targetPaperCost,
+        String printLayout, String duplexMode, String colorPageRange, String monochromePageRange,
         double markupPercentage, double minimumFee, double finishingCost, double discountPercentage) {
 
         SseEmitter emitter = emitters.get(jobId);
@@ -215,12 +213,8 @@ public class DocumentController {
             }
 
             double final_pdf_page_area = accumulated_pdf_page_area / total_pdf_pages;
-            double targetPaperArea = switch (targetPaperSize) {
-                case "A3" -> 1002270.0;
-                case "A5" -> 250567.0;
-                case "Legal" -> 604800.0;
-                default -> 501135.0;
-            };
+            
+            // Replaced switch blocks with the dynamically calculated frontend values!
             double ink_cost_multiplier = targetPaperArea / final_pdf_page_area;
 
             double cyanCost = totalCyan * ink_cost_multiplier * (cyanPrice / (cyanYield * isoCoverage)); 
@@ -240,19 +234,11 @@ public class DocumentController {
             int duplexFactor = "duplex".equalsIgnoreCase(duplexMode) ? 2 : 1;
             int numberOfpagesAfterNup = (int) Math.ceil((double) allPages.size() / (N_up * duplexFactor));
 
-            double totalPaperCost = switch (targetPaperSize) {
-                case "A3" -> numberOfpagesAfterNup * a3Cost;
-                case "A5" -> numberOfpagesAfterNup * a5Cost;
-                case "Legal" -> numberOfpagesAfterNup * legalCost;
-                default -> numberOfpagesAfterNup * a4Cost;
-            };
+            System.out.println("paper cost " + targetPaperCost +"|" +"target paper name " + targetPaperSize + " | target page area" + targetPaperArea);
 
-            Double costOfASingle_PaperSheet = switch (targetPaperSize) {
-                case "A3" -> a3Cost;
-                case "A5" -> a5Cost;
-                case "Legal" -> legalCost;
-                default -> a4Cost;
-            }; 
+            // Dynamically computed total paper cost
+            double totalPaperCost = numberOfpagesAfterNup * targetPaperCost;
+            Double costOfASingle_PaperSheet = targetPaperCost; 
 
             long processingTime = (System.currentTimeMillis() - startTime) / 1000;
 
@@ -295,7 +281,6 @@ public class DocumentController {
 
             int Shop_profit = customerFinalPrice - finalCost;
 
-            // Store calculation output in memory for PDF generation
             CalculationReport report = new CalculationReport();
             report.jobId = jobId;
             report.fileSizeMB = fileSizeInMB;
@@ -334,7 +319,6 @@ public class DocumentController {
 
             reports.put(jobId, report);
 
-            // Send status messages to SSE UI
             String summaryMessage = String.format("File size: %.2f MB | Analyzed: %d/%d\n" +
                     "Mono Pages: %d | Color Pages: %d\n" +
                     "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%, K: %.2f%%\n" +
@@ -360,8 +344,6 @@ public class DocumentController {
                      markupPercentage, minimumFee, finishingCost, discountPercentage, customerFinalPrice, Shop_profit);
 
             emitter.send(summaryMessage);
-
-            // Send named SSE completion event and close emitter
             emitter.send(SseEmitter.event().name("COMPLETE").data("Analysis complete!"));
             emitter.complete();
 
@@ -419,20 +401,17 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
         doc.addPage(page);
 
         try (PDPageContentStream content = new PDPageContentStream(doc, page)) {
-
-                // --- 1. COLOR PALETTE & FONTS ---
-                Color COLOR_PRIMARY = new Color(30, 41, 59);     // Slate Dark Blue
-                Color COLOR_SECONDARY = new Color(71, 85, 105);  // Slate Medium Gray
-                Color COLOR_CARD_BG = new Color(248, 250, 252);  // Soft Card Fill
-                Color COLOR_CARD_BORDER = new Color(226, 232, 240); // Card Border
-                Color COLOR_TOTAL_BG = new Color(240, 253, 244);  // Light Emerald Background
-                Color COLOR_TOTAL_BORDER = new Color(34, 197, 94); // Emerald Border
-                Color COLOR_TOTAL_TEXT = new Color(21, 128, 61);   // Emerald Dark Text
+                Color COLOR_PRIMARY = new Color(30, 41, 59);     
+                Color COLOR_SECONDARY = new Color(71, 85, 105);  
+                Color COLOR_CARD_BG = new Color(248, 250, 252);  
+                Color COLOR_CARD_BORDER = new Color(226, 232, 240); 
+                Color COLOR_TOTAL_BG = new Color(240, 253, 244);  
+                Color COLOR_TOTAL_BORDER = new Color(34, 197, 94); 
+                Color COLOR_TOTAL_TEXT = new Color(21, 128, 61);   
 
                 PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
                 PDType1Font fontReg = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
 
-                // --- 2. LOGO RESOLUTION & PLACEMENT ---
                 Path logoStorageDir = Paths.get(System.getProperty("user.home"), ".ink_estimator", "logo");
                 Path pngPath = logoStorageDir.resolve("shop-logo.png");
                 Path jpgPath = logoStorageDir.resolve("shop-logo.jpg");
@@ -467,7 +446,6 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                     content.drawImage(pdImage, xPos, yPos, drawWidth, drawHeight);
                 }
 
-                // --- 3. HEADER TITLE & SUBTITLE ---
                 content.beginText();
                 content.setFont(fontBold, 18);
                 content.setNonStrokingColor(COLOR_PRIMARY);
@@ -482,20 +460,17 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.showText("PDF Ink & Paper Analysis Breakdown");
                 content.endText();
 
-                // Header Divider Line
                 content.setStrokingColor(COLOR_CARD_BORDER);
                 content.setLineWidth(1.0f);
                 content.moveTo(40, 742);
                 content.lineTo(555, 742);
                 content.stroke();
 
-                // --- 4. METADATA CARD (HEIGHT INCREASED TO 105 FOR WRAPPED LISTS) ---
                 content.setNonStrokingColor(COLOR_CARD_BG);
                 content.setStrokingColor(COLOR_CARD_BORDER);
                 content.addRect(40, 625, 515, 105);
                 content.fillAndStroke();
 
-                // Left Column Details
                 String rawFileName = (report.fileName != null) ? report.fileName : "Unknown File";
                 List<String> fileNameLines = wrapText("File Name: " + rawFileName, fontReg, 9f, 240f);
 
@@ -520,7 +495,6 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.showText(String.format("File Size: %.2f MB", report.fileSizeMB));
                 content.endText();
 
-                // Right Column Details (Formatted Ranges & Wrapped Text)
                 String monoStr = "Mono Pages: " + formatPageRanges(report.monoPages);
                 String colorStr = "Color Pages: " + formatPageRanges(report.colorPages);
 
@@ -560,7 +534,6 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.showText("Processing Time: " + report.processingTimeSeconds + " seconds");
                 content.endText();
 
-                // --- 5. INK ANALYSIS CARD ---
                 content.beginText();
                 content.setFont(fontBold, 12);
                 content.setNonStrokingColor(COLOR_PRIMARY);
@@ -584,7 +557,6 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.showText(String.format("Black Coverage:    %.2f%%   (Cost: %.2f)", report.blackUsage, report.blackCost));
                 content.endText();
 
-                // --- 6. CONFIGURATION & INK SUMMARY CARD ---
                 content.beginText();
                 content.setFont(fontBold, 12);
                 content.setNonStrokingColor(COLOR_PRIMARY);
@@ -608,7 +580,6 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.showText(String.format("Ink Cost (After N-Up): %.2f", report.inkCostAfterNup));
                 content.endText();
 
-                // --- 7. PAPER COSTS CARD ---
                 content.beginText();
                 content.setFont(fontBold, 12);
                 content.setNonStrokingColor(COLOR_PRIMARY);
@@ -632,17 +603,11 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.showText(String.format("Tiered multiplier: %.2f", report.tieredMultiplier));
                 content.endText();
 
-                
-
-              
-
-                // --- 8. FINANCIAL SUMMARY (3-COLUMN DASHBOARD) ---
                 float boxY = 195f;
                 float boxH = 65f;
                 float titleY = boxY + 40f;
                 float valueY = boxY + 18f;
 
-                // Column 1: Total Shop Cost (Base Ink + Paper)
                 content.setNonStrokingColor(COLOR_CARD_BG);
                 content.setStrokingColor(COLOR_CARD_BORDER);
                 content.setLineWidth(1.0f);
@@ -663,7 +628,6 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.showText(String.format("%.2f", (double) report.finalCost));
                 content.endText();
 
-                // Column 2: Customer Charged (After Markup/Discounts)
                 content.setNonStrokingColor(COLOR_CARD_BG);
                 content.setStrokingColor(COLOR_CARD_BORDER);
                 content.setLineWidth(1.0f);
@@ -684,7 +648,6 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.showText(String.format("%.2f", (double) report.customerFinalPrice));
                 content.endText();
 
-                // Column 3: Net Profit (Highlighted in Green)
                 content.setNonStrokingColor(COLOR_TOTAL_BG);
                 content.setStrokingColor(COLOR_TOTAL_BORDER);
                 content.setLineWidth(1.5f);
@@ -706,11 +669,6 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.endText();
             }
         
-
-        // NOTE: Paste your EXACT existing PDF drawing logic from your original downloadPdfReport here.
-        // Everything from defining the colors to the doc.save() call.
-        // Make sure it includes your logo loading, metadata card, ink analysis card, etc.
-        
         doc.save(baos);
         return baos.toByteArray();
     }
@@ -725,7 +683,6 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
                 PDType1Font fontReg = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
 
-                // --- 1. COLOR PALETTE ---
                 Color COLOR_PRIMARY = new Color(30, 41, 59);
                 Color COLOR_SECONDARY = new Color(71, 85, 105);
                 Color COLOR_CARD_BG = new Color(248, 250, 252);
@@ -734,8 +691,6 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 Color COLOR_TOTAL_BORDER = new Color(34, 197, 94);
                 Color COLOR_TOTAL_TEXT = new Color(21, 128, 61);
 
-
-                 // --- 2. LOGO RESOLUTION & PLACEMENT ---
                 Path logoStorageDir = Paths.get(System.getProperty("user.home"), ".ink_estimator", "logo");
                 Path pngPath = logoStorageDir.resolve("shop-logo.png");
                 Path jpgPath = logoStorageDir.resolve("shop-logo.jpg");
@@ -770,7 +725,6 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                     content.drawImage(pdImage, xPos, yPos, drawWidth, drawHeight);
                 }
 
-                // --- 2. HEADER & SUBTITLE ---
                 content.beginText();
                 content.setFont(fontBold, 18);
                 content.setNonStrokingColor(COLOR_PRIMARY);
@@ -785,20 +739,17 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 content.showText("Customer Quotation & Job Details");
                 content.endText();
 
-                // Header Divider Line
                 content.setStrokingColor(COLOR_CARD_BORDER);
                 content.setLineWidth(1.0f);
                 content.moveTo(40, 742);
                 content.lineTo(555, 742);
                 content.stroke();
 
-                // --- 3. METADATA CARD (JOB DETAILS) ---
                 content.setNonStrokingColor(COLOR_CARD_BG);
                 content.setStrokingColor(COLOR_CARD_BORDER);
                 content.addRect(40, 615, 515, 110);
                 content.fillAndStroke();
 
-                // Left Column: Core File Info
                 String rawFileName = (report.fileName != null) ? report.fileName : "Unknown File";
                 List<String> fileNameLines = wrapText("File Name: " + rawFileName, fontReg, 10f, 240f);
 
@@ -824,7 +775,6 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 content.showText("Total Document Pages: " + report.totalPages);
                 content.endText();
 
-                // Right Column: Page Range Breakdowns
                 String monoStr = "Mono Pages: " + formatPageRanges(report.monoPages);
                 String colorStr = "Color Pages: " + formatPageRanges(report.colorPages);
 
@@ -863,7 +813,6 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                         report.totalPages, report.monoPagesCount, report.colorPagesCount)); 
                 content.endText();
 
-                // --- 4. ORDER SUMMARY CARD ---
                 content.beginText();
                 content.setFont(fontBold, 12);
                 content.setNonStrokingColor(COLOR_PRIMARY);
@@ -891,7 +840,6 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 }
                 content.endText();
 
-                // --- 5. GRAND TOTAL CALLOUT BOX ---
                 content.setNonStrokingColor(COLOR_TOTAL_BG);
                 content.setStrokingColor(COLOR_TOTAL_BORDER);
                 content.setLineWidth(1.5f);
@@ -918,10 +866,6 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
         }
     }
 
-
-
-
-    // Helper: Formats list of integers into range notation (e.g. 1-5, 8-10, 12)
     private String formatPageRanges(List<Integer> pages) {
         if (pages == null || pages.isEmpty()) return "None";
         List<Integer> sorted = new ArrayList<>(pages);
@@ -953,7 +897,6 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
         return sb.toString();
     }
 
-    // Helper: Wraps text lines according to maximum pixel width
     private List<String> wrapText(String text, PDType1Font font, float fontSize, float maxWidth) {
         List<String> lines = new ArrayList<>();
         if (text == null || text.trim().isEmpty()) return lines;

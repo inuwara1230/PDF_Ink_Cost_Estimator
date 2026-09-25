@@ -5,7 +5,6 @@ import com.inuwara.pdf_ink_cost_estimator.repository.PrinterSettingsRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
 import java.util.Optional;
 
 @RestController
@@ -23,8 +22,6 @@ public class PrinterSettingsController {
     public ResponseEntity<String> createSettings(
             @RequestBody printerSettings newSettings
             ) {
-        
-        
         
         // Check if settings already exist
         if (repository.count() > 0) {
@@ -47,8 +44,6 @@ public class PrinterSettingsController {
             @RequestBody printerSettings updatedSettings
             ) {
         
-        
-        
         // Check if settings actually exist to update
         Optional<printerSettings> existingSettings = repository.findAll().stream().findFirst();
         if (existingSettings.isEmpty()) {
@@ -70,7 +65,6 @@ public class PrinterSettingsController {
             settingsToUpdate.setYellowPrice(updatedSettings.getYellowPrice());
             settingsToUpdate.setYellowYield(updatedSettings.getYellowYield());
             
-            
             settingsToUpdate.setA4Cost(updatedSettings.getA4Cost());
             settingsToUpdate.setA3Cost(updatedSettings.getA3Cost());
             settingsToUpdate.setA5Cost(updatedSettings.getA5Cost());
@@ -79,6 +73,9 @@ public class PrinterSettingsController {
             settingsToUpdate.setMarkupPercentage(updatedSettings.getMarkupPercentage());
             settingsToUpdate.setMinimumFee(updatedSettings.getMinimumFee());
             settingsToUpdate.setFinishingCost(updatedSettings.getFinishingCost());
+            
+            // Add mapping for custom papers list
+            settingsToUpdate.setCustomPapers(updatedSettings.getCustomPapers());
 
             repository.save(settingsToUpdate);
             return ResponseEntity.ok("Settings updated successfully!");
@@ -90,19 +87,15 @@ public class PrinterSettingsController {
 
     @GetMapping("/get")
     public ResponseEntity<printerSettings> getSettings() { 
-        
-        
         return repository.findAll().stream().findFirst().map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
 
     @DeleteMapping("/clear")
     public ResponseEntity<String> clearSettings() {
-        
         try {
             if (repository.count() > 0) {
                 repository.deleteAll();
-                // 
                 return ResponseEntity.ok("Settings successfully cleared from the database.");
             } else {
                 return ResponseEntity.ok("No saved settings found to clear.");
@@ -112,5 +105,4 @@ public class PrinterSettingsController {
             return ResponseEntity.internalServerError().body("Failed to clear settings from the database.");
         }
     }
-
 }

@@ -1,6 +1,8 @@
 package com.inuwara.pdf_ink_cost_estimator.model;
 
 import jakarta.persistence.*;
+import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Table(name = "printer_settings")
@@ -11,60 +13,45 @@ public class printerSettings {
     private Long id;
 
     // --- General Settings ---
-    // Maps to inkjet or laser selection
     @Column(name = "printer_type", nullable = false)
     private String printerType;
 
     @Column(name = "user_id", nullable = true)
     private String userId; 
 
-    // Maps to ISO coverage input (default 5)[cite: 3]
     @Column(name = "iso_coverage_percentage", nullable = false)
     private Double isoCoveragePercentage = 5.0;
 
-    // Maps to Full Color (CMYK) or Monochrome selection[cite: 3]
     @Column(name = "color_capability", nullable = false)
     private String colorCapability;
 
-
     // --- Black Cartridge ---
-    // Maps to monochrome price and yield inputs[cite: 3]
     @Column(name = "black_price", nullable = false)
     private Double blackPrice;
 
     @Column(name = "black_yield", nullable = false)
     private Integer blackYield;
 
-
     // --- Color Cartridges ---
-    // Maps to Cyan price and yield inputs[cite: 3]
     @Column(name = "cyan_price")
     private Double cyanPrice;
 
     @Column(name = "cyan_yield")
     private Integer cyanYield;
 
-    // Maps to Magenta price and yield inputs[cite: 3]
     @Column(name = "magenta_price")
     private Double magentaPrice;
 
     @Column(name = "magenta_yield")
     private Integer magentaYield;
 
-    // Maps to Yellow price and yield inputs[cite: 3]
     @Column(name = "yellow_price")
     private Double yellowPrice;
 
     @Column(name = "yellow_yield")
     private Integer yellowYield;
 
-
     // --- Print Job Preferences ---
-    // Maps to printing in black & white or full color selection[cite: 3]
-    //@Column(name = "print_job_color_type", nullable = false)
-    //private String printJobColorType;
-
-    // Maps to cost per paper input[cite: 3]
     @Column(name = "A4_cost", nullable = false)
     private Double a4Cost;
 
@@ -77,8 +64,6 @@ public class printerSettings {
     @Column(name = "legal_cost", nullable = false)
     private Double legalCost;
 
-    // Add these fields inside printerSettings.java[cite: 2]
-
     @Column(name = "markup_percentage", nullable = false)
     private Double markupPercentage = 100.0;
 
@@ -88,9 +73,31 @@ public class printerSettings {
     @Column(name = "finishing_cost", nullable = false)
     private Double finishingCost = 0.0;
 
+    // --- Custom Dynamic Papers ---
+    @Embeddable
+    public static class CustomPaper {
+        private String name;
+        private Double areaInPoints;
+        private Double price;
 
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        
+        public Double getAreaInPoints() { return areaInPoints; }
+        public void setAreaInPoints(Double areaInPoints) { this.areaInPoints = areaInPoints; }
+        
+        public Double getPrice() { return price; }
+        public void setPrice(Double price) { this.price = price; }
+    }
+
+    @ElementCollection
+    @CollectionTable(name = "custom_papers", joinColumns = @JoinColumn(name = "printer_settings_id"))
+    private List<CustomPaper> customPapers = new ArrayList<>();
 
     // --- Getters and Setters ---
+
+    public List<CustomPaper> getCustomPapers() { return customPapers; }
+    public void setCustomPapers(List<CustomPaper> customPapers) { this.customPapers = customPapers; }
 
     public Double getMarkupPercentage() { return markupPercentage; }
     public void setMarkupPercentage(Double markupPercentage) { this.markupPercentage = markupPercentage; }
@@ -139,8 +146,6 @@ public class printerSettings {
 
     public Integer getYellowYield() { return yellowYield; }
     public void setYellowYield(Integer yellowYield) { this.yellowYield = yellowYield; }
-
-
 
     public Double getA4Cost() { return a4Cost; }
     public void setA4Cost(Double a4Cost) { this.a4Cost = a4Cost; }

@@ -1,18 +1,24 @@
+// Global Paper Collections mapped for dropdowns & scaling
+const standardPapers = [
+    { name: "A4", area: 501135.0, priceInput: "A4", label: "A4 (Standard)" },
+    { name: "A3", area: 1002270.0, priceInput: "A3", label: "A3 (Scaled Up - Double Area)" },
+    { name: "A5", area: 250567.0, priceInput: "A5", label: "A5 (Scaled Down - Half Area)" },
+    { name: "Legal", area: 604800.0, priceInput: "Legal", label: "Legal" }
+];
+
+let customPapers = [];
+let editingIndex = -1; // Tracks the index of the custom paper currently being edited
+
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Auto-load existing user settings on page load
     loadSavedSettings();
     
-
     // 2. Event Listener: Color Capability Dropdown Toggle
     document.getElementById('color_capability').addEventListener('change', function() {
         const full_color = document.getElementById('full_color');
         
-        
         if (this.value === 'Monochrome') {
             full_color.style.display = 'none';
-            
-            
-            
             // Clear out color inputs when switching to monochrome
             document.getElementById('cyanPrice').value = '';
             document.getElementById('cyanYield').value = '';
@@ -22,9 +28,42 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('yellowYield').value = '';
         } else {
             full_color.style.display = 'block';
-           
+        }
+    });
+
+    // Event Listener: Add / Save Edit Custom Paper Button
+    const addCustomPaperBtn = document.getElementById('addCustomPaperBtn');
+    addCustomPaperBtn.addEventListener('click', () => {
+        const name = document.getElementById('customPaperName').value.trim();
+        const areaCm2 = parseFloat(document.getElementById('customPaperArea').value);
+        const price = parseFloat(document.getElementById('customPaperPrice').value);
+
+        if (!name || isNaN(areaCm2) || isNaN(price)) {
+            alert("Please fill all custom paper fields with valid values.");
+            return;
         }
         
+        // Convert cm^2 to points^2 for PDFBox processing
+        const areaInPoints = areaCm2 * 803.521617; // 1 cm² = 803.521627 points²
+        
+        if (editingIndex > -1) {
+            // Update existing paper
+            customPapers[editingIndex] = { name, areaInPoints, price };
+            editingIndex = -1; // Reset state
+            addCustomPaperBtn.textContent = 'Add';
+            addCustomPaperBtn.style.backgroundColor = ''; // Reset to default CSS style
+        } else {
+            // Add new paper
+            customPapers.push({ name, areaInPoints, price });
+        }
+        
+        renderCustomPapers();
+        updatePaperDropdown();
+
+        // Clear Fields
+        document.getElementById('customPaperName').value = '';
+        document.getElementById('customPaperArea').value = '';
+        document.getElementById('customPaperPrice').value = '';
     });
 
     // 3. Event Listener: Save Button (Form Submission)
@@ -40,12 +79,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 5. Event Listener: Clear Settings Button
     document.getElementById('clear_settings').addEventListener('click', async function() {
-        // Step A: Clear the UI Form
         document.getElementById('inkCostForm').reset();
-        document.getElementById('covarage_percentage').value = 5; // Reset to default ISO percentage
-        document.getElementById('color_capability').dispatchEvent(new Event('change')); // Reset UI state
+        document.getElementById('covarage_percentage').value = 5; 
+        document.getElementById('color_capability').dispatchEvent(new Event('change'));
+        
+        customPapers = [];
+        editingIndex = -1; // Reset edit state if active
+        document.getElementById('addCustomPaperBtn').textContent = 'Add';
+        document.getElementById('addCustomPaperBtn').style.backgroundColor = '';
+        
+        renderCustomPapers();
+        updatePaperDropdown();
 
-        // Step B: Erase from the Database
         try {
             const response = await fetch('/api/settings/clear', {
                 method: 'DELETE'
@@ -71,10 +116,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileInput = document.getElementById('pdfFileInput');
         const file = fileInput.files[0];
         
-        // FIX: Re-declare colorMode by pointing it to the global printer capability
         const colorMode = document.getElementById('color_capability').value;
 
+        // Custom Paper Calculation Resolution
         const target = document.getElementById('targetPaperSize').value;
+        let targetArea = 501135.0; // Standard Fallback
+        let targetCost = 0.0;
+
+        const stdPaper = standardPapers.find(p => p.name === target);
+        if (stdPaper) {
+            targetArea = stdPaper.area;
+            targetCost = parseFloat(document.getElementById(stdPaper.priceInput).value) || 0.0;
+        } else {
+            const custPaper = customPapers.find(p => p.name === target);
+            if (custPaper) {
+                targetArea = custPaper.areaInPoints;
+                targetCost = custPaper.price;
+            }
+        }
+
         const layout = document.getElementById('printMode').value;
         const sides = document.getElementById('duplexMode').value;
         const color_page_range = document.getElementById('colorPages').value;
@@ -89,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusText = document.getElementById('uploadStatus');
         statusText.innerText = 'Connecting to server...';
 
-        // Disable the download button at the start of processing
         const downloadBtn = document.getElementById('downloadPdfBtn');
         if (downloadBtn) {
             downloadBtn.disabled = true;
@@ -98,26 +157,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const eventSource = new EventSource(`/api/progress/${jobID}`);
 
-        // FIX: Close the onmessage block so listeners aren't nested
         eventSource.onmessage = function(event) {
             statusText.innerHTML = event.data.replace(/\n/g, '<br>'); 
         };
 
-        // FIX: COMPLETE listener sits alongside onmessage, not inside it
         eventSource.addEventListener('COMPLETE', function(event) {
             console.log("Calculations finished!");
             eventSource.close();
 
             if (downloadBtn) {
-                downloadBtn.disabled = false; // Enable the button
+                downloadBtn.disabled = false;
                 downloadBtn.onclick = function() {
-                    // FIX 1: Added /api prefix to match controller mapping
                     window.location.href = `/api/download_pdf/${jobID}`;
                 };
             }
         });
 
-        // Handle network drops gracefully
         eventSource.onerror = function(err) {
             console.error("SSE Error:", err);
             eventSource.close();
@@ -132,24 +187,20 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('blackYield', document.getElementById('monochrome_yield').value || '1');
         formData.append('isoCoverage', document.getElementById('covarage_percentage').value || '5');
 
-        formData.append('a4Cost', document.getElementById('A4').value || '0');
-        formData.append('a3Cost', document.getElementById('A3').value || '0');
-        formData.append('a5Cost', document.getElementById('A5').value || '0');
-        formData.append('legalCost', document.getElementById('Legal').value || '0');
-
         formData.append('targetPaperSize', target);
+        formData.append('targetPaperArea', targetArea);
+        formData.append('targetPaperCost', targetCost);
+
         formData.append('printLayout', layout);
         formData.append('duplexMode', sides);
         formData.append('colorPageRange', color_page_range);
         formData.append('monochromePageRange', monochrome_page_range);
-       
-        // Read the new job-specific discount field and append it to the formData
+        
         formData.append('markupPercentage', document.getElementById('markup_percentage').value || '100');
         formData.append('minimumFee', document.getElementById('minimum_fee').value || '0');
         formData.append('finishingCost', document.getElementById('finishing_cost').value || '0');
         formData.append('discountPercentage', document.getElementById('job_discount').value || '0');
 
-        // This will now evaluate correctly without crashing
         if (colorMode !== 'Monochrome') {
             formData.append('cyanPrice', document.getElementById('cyanPrice').value || '0');
             formData.append('cyanYield', document.getElementById('cyanYield').value || '1');
@@ -181,6 +232,91 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+// Custom Paper Frontend Management
+function updatePaperDropdown() {
+    const select = document.getElementById('targetPaperSize');
+    const currentValue = select.value; 
+    select.innerHTML = '';
+    
+    // Add Standards
+    standardPapers.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = p.label;
+        select.appendChild(opt);
+    });
+
+    // Add Customized
+    customPapers.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = `${p.name} (Custom Size)`;
+        select.appendChild(opt);
+    });
+
+    // Retain previous selection if valid
+    if (Array.from(select.options).some(opt => opt.value === currentValue)) {
+        select.value = currentValue;
+    }
+}
+
+// Load values into inputs for editing
+window.editCustomPaper = function(index) {
+    const p = customPapers[index];
+    document.getElementById('customPaperName').value = p.name;
+    // Convert points back to cm2 for user editing
+    document.getElementById('customPaperArea').value = (p.areaInPoints / 803.521617).toFixed(2);
+    document.getElementById('customPaperPrice').value = p.price;
+    
+    editingIndex = index;
+    const addBtn = document.getElementById('addCustomPaperBtn');
+    addBtn.textContent = 'Save Edit';
+    addBtn.style.backgroundColor = '#10b981'; // Green color to indicate save state
+};
+
+// Ensure Delete can be reached from HTML buttons
+window.removeCustomPaper = function(index) {
+    customPapers.splice(index, 1);
+    
+    // If the user deletes the item they are currently editing, reset the inputs
+    if (editingIndex === index) {
+        editingIndex = -1;
+        const addBtn = document.getElementById('addCustomPaperBtn');
+        addBtn.textContent = 'Add';
+        addBtn.style.backgroundColor = '';
+        document.getElementById('customPaperName').value = '';
+        document.getElementById('customPaperArea').value = '';
+        document.getElementById('customPaperPrice').value = '';
+    } else if (editingIndex > index) {
+        // Adjust the editing index if a preceding item is deleted
+        editingIndex--;
+    }
+
+    renderCustomPapers();
+    updatePaperDropdown();
+};
+
+function renderCustomPapers() {
+    const list = document.getElementById('customPaperList');
+    list.innerHTML = '';
+    customPapers.forEach((p, idx) => {
+        const li = document.createElement('li');
+        li.className = 'custom-paper-item';
+        // Convert back to cm2 for rendering context
+        const areaCm2 = (p.areaInPoints / 803.521617).toFixed(2);
+        
+        li.innerHTML = `
+            <span>${p.name} - ${areaCm2} cm² - Rs ${p.price.toFixed(2)}</span>
+            <div class="action-buttons">
+                <button type="button" class="edit-btn" onclick="window.editCustomPaper(${idx})">Edit</button>
+                <button type="button" class="delete-btn" onclick="window.removeCustomPaper(${idx})">Delete</button>
+            </div>
+        `;
+        list.appendChild(li);
+    });
+}
+
+
 // --- Helper: Gather Form Data into JSON Payload ---
 function getSettingsFormData() {
     return {
@@ -200,8 +336,6 @@ function getSettingsFormData() {
         yellowPrice: document.getElementById('yellowPrice').value ? parseFloat(document.getElementById('yellowPrice').value) : null,
         yellowYield: document.getElementById('yellowYield').value ? parseInt(document.getElementById('yellowYield').value, 10) : null,
         
-        
-        
         a4Cost: parseFloat(document.getElementById('A4').value) || 0.0,
         a3Cost: parseFloat(document.getElementById('A3').value) || 0.0,
         a5Cost: parseFloat(document.getElementById('A5').value) || 0.0,
@@ -210,6 +344,8 @@ function getSettingsFormData() {
         markupPercentage: parseFloat(document.getElementById('markup_percentage').value) || 0.0,
         minimumFee: parseFloat(document.getElementById('minimum_fee').value) || 0.0,
         finishingCost: parseFloat(document.getElementById('finishing_cost').value) || 0.0,
+        
+        customPapers: customPapers 
     };
 }
 
@@ -220,7 +356,6 @@ async function sendSettingsRequest(url, method, successMessage) {
 
     const colorCapability = document.getElementById('color_capability').value;
 
-    // --- SECURITY CHECK: Validate Full Color Fields if Full Color is selected ---
     if (colorCapability !== 'Monochrome') {
         const cyanPrice = document.getElementById('cyanPrice').value.trim();
         const cyanYield = document.getElementById('cyanYield').value.trim();
@@ -231,7 +366,7 @@ async function sendSettingsRequest(url, method, successMessage) {
 
         if (!cyanPrice || !cyanYield || !magentaPrice || !magentaYield || !yellowPrice || !yellowYield) {
             setting_massage.innerText = 'Error: All Cyan, Magenta, and Yellow price and yield fields must be filled when Full Color is selected.';
-            return; // Stops the function from executing the fetch request
+            return; 
         }
     }
 
@@ -261,7 +396,7 @@ async function loadSavedSettings() {
     try {
         const response = await fetch('/api/settings/get',{
             method:'GET',
-            credentials: 'include' // Ensure cookies/session are sent with the request
+            credentials: 'include' 
         });
         if (response.ok) {
             const data = await response.json();
@@ -280,38 +415,38 @@ async function loadSavedSettings() {
             document.getElementById('yellowPrice').value = data.yellowPrice ?? '';
             document.getElementById('yellowYield').value = data.yellowYield ?? '';
             
-            // FIX: Commented out to prevent TypeError crashes
-            // document.getElementById('colorTypeSelect').value = data.printJobColorType || 'fullColor';
-
             document.getElementById('A4').value = data.a4Cost ?? '';
             document.getElementById('A3').value = data.a3Cost ?? '';
             document.getElementById('A5').value = data.a5Cost ?? '';
             document.getElementById('Legal').value = data.legalCost ?? '';
 
-            // Sync visible sections according to restored color capability
-            document.getElementById('color_capability').dispatchEvent(new Event('change'));
-
-            // Inside loadSavedSettings() in index.js[cite: 16]
             document.getElementById('markup_percentage').value = data.markupPercentage ?? 100;
             document.getElementById('minimum_fee').value = data.minimumFee ?? 0;
             document.getElementById('finishing_cost').value = data.finishingCost ?? 0;
+
+            customPapers = data.customPapers || [];
+
+            document.getElementById('color_capability').dispatchEvent(new Event('change'));
             
+            renderCustomPapers();
+            updatePaperDropdown();
+        } else {
+            // Load defaults if none
+            updatePaperDropdown();
         }
     } catch (error) {
         console.log('No saved settings found for current session.');
+        updatePaperDropdown();
     }
 }
 
 function switchTab(event, tabId) {
-    // Hide all tab content sections
     const contents = document.querySelectorAll('.tab-content');
     contents.forEach(tab => tab.style.display = 'none');
 
-    // Remove active class from all tab buttons
     const buttons = document.querySelectorAll('.tab-btn');
     buttons.forEach(btn => btn.classList.remove('active'));
 
-    // Display selected tab and set button as active
     document.getElementById(tabId).style.display = 'block';
     event.currentTarget.classList.add('active');
 }
@@ -326,7 +461,6 @@ async function uploadLogo() {
         return;
     }
 
-    // Package the file for the backend
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
 
@@ -334,7 +468,6 @@ async function uploadLogo() {
         statusText.innerText = "Uploading...";
         statusText.style.color = "blue";
         
-        // Send to the Spring Boot Controller
         const response = await fetch('/api/logo/upload', {
             method: 'POST',
             body: formData
@@ -344,11 +477,9 @@ async function uploadLogo() {
             statusText.innerText = "Logo updated successfully!";
             statusText.style.color = "green";
             
-            // Reload the image by appending a timestamp (bypasses browser caching)
             const logoImg = document.getElementById('shopLogo');
             logoImg.src = `/api/logo?t=${new Date().getTime()}`;
             
-            // Clear the input box
             fileInput.value = "";
         } else {
             const errorMsg = await response.text();

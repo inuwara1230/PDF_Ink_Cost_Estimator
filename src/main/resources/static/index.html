@@ -35,9 +35,6 @@
                                 <h4>1. Target Paper Size</h4>
                                 <select id="targetPaperSize" name="targetPaperSize">
                                     <option value="A4">A4 (Standard)</option>
-                                    <option value="A3">A3 (Scaled Up - Double Area)</option>
-                                    <option value="A5">A5 (Scaled Down - Half Area)</option>
-                                    <option value="Legal">Legal</option>
                                 </select>
                             </div>
                         
@@ -92,9 +89,7 @@
                     
                     <!-- RIGHT COLUMN: STATUS AND DOWNLOAD -->
                     <div class="results-section">
-                        <div id="uploadStatus" class="status-section">
-                            <!-- Status messages will appear here -->
-                        </div>
+                        <div id="uploadStatus" class="status-section"></div>
                         <div id="ReportDownloadBynContainer">
                             <button id="downloadPdfBtn" disabled>Download Cost Report PDF</button>
                         </div>
@@ -103,7 +98,7 @@
                 </div>
             </div>
 
-            <!-- TAB 2: PRINTER SETTINGS (HIDDEN BY DEFAULT VIA INLINE STYLE FOR JS TOGGLE) -->
+            <!-- TAB 2: PRINTER SETTINGS -->
             <div id="printerTab" class="tab-content" style="display: none;">
                 <form id="inkCostForm">
                     
@@ -132,19 +127,9 @@
                                     <option value="Monochrome">Monochrome (Black & White)</option>
                                 </select>
                             </div>
-
-                            <!-- Color Type Selection -->
-                            <!--<div id="colorType" class="field-group">
-                                <h3>Are you printing in black & white or full color?</h3>
-                                <select id="colorTypeSelect" name="colorTypeSelect">
-                                    <option value="fullColor">Full Color</option>
-                                    <option value="Monochrome">Black & White</option>
-                                </select>
-                            </div>
-                            -->
                             
                             <div id="paperCostdiv">
-                                <h3>Paper Costs</h3>
+                                <h3>Standard Paper Costs</h3>
                                 <div class="paper-inputs-row">
                                     <div class="input-group">
                                         <label for="A4">A4:</label>
@@ -163,6 +148,15 @@
                                         <input type="number" id="Legal" min="0" step="any" name="paperCost" placeholder="Price" required>
                                     </div>
                                 </div>
+                                
+                                <h3 style="margin-top: 1vh;">Custom Papers</h3>
+                                <div class="paper-inputs-row">
+                                    <input type="text" id="customPaperName" placeholder="Paper Name">
+                                    <input type="number" id="customPaperArea" placeholder="Area (cm²)">
+                                    <input type="number" id="customPaperPrice" placeholder="Price">
+                                    <button type="button" id="addCustomPaperBtn" style="background-color: #3b82f6; color: white;">Add</button>
+                                </div>
+                                <ul id="customPaperList" class="custom-paper-list"></ul>
                             </div>
                         </div>
 
