@@ -393,5 +393,16 @@ hr {
 }
 
 .custom-paper-item .delete-btn {
-    background-color: #810101;
+    background-color:#951818;
+}
+
+.refresh-btn {
+    margin-left: auto; /* Pushes the button to the far right */
+    background-color: #1e293b;
+    color: #cbd5e1;
+}
+
+.refresh-btn:hover {
+    background-color: #334155;
+    color: #ffffff;
 }

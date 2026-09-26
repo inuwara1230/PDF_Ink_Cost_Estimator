@@ -19,6 +19,10 @@
             <div class="tab-container">
                 <button type="button" class="tab-btn active" onclick="switchTab(event, 'calculatorTab')">Cost Calculator</button>
                 <button type="button" class="tab-btn" onclick="switchTab(event, 'printerTab')">Settings</button>
+
+                <button type="button" class="tab-btn refresh-btn" onclick="location.reload()" title="Refresh Application">
+                    ↻ Refresh
+                </button>
             </div>
             
             <!-- TAB 1: COST CALCULATOR (DEFAULT ACTIVE TAB) -->
@@ -261,9 +265,9 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit">Save Settings</button>
-                        <button type="button" id="updateButton">Update Settings</button>
-                        <button type="button" id="clear_settings">Clear Settings</button>
+                        <button type="submit">create</button>
+                        <button type="button" id="updateButton">Update</button>
+                        <button type="button" id="clear_settings">wipe</button>
                         <span id="settingsStatus"></span>
                     </div>
                 </form>

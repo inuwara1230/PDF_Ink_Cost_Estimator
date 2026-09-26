@@ -73,6 +73,9 @@ public class DocumentController {
         public double tieredMultiplier;
         public int customerFinalPrice;
         public int Shop_profit;
+        public String shopName;
+        public String shopAddress;
+        public String shopContact;
     }
 
     @GetMapping(value = "/progress/{jobId}", produces = "text/event-stream")
@@ -111,7 +114,10 @@ public class DocumentController {
         @RequestParam (value = "minimumFee", required = false, defaultValue = "0") double minimumFee,
         @RequestParam (value = "finishingCost", required = false, defaultValue = "0") double finishingCost,
         @RequestParam (value = "discountPercentage", required = false, defaultValue = "0") double discountPercentage,
-        @RequestParam (value = "nUpFactor", required = false, defaultValue = "1") double nUpFactor)
+        @RequestParam (value = "nUpFactor", required = false, defaultValue = "1") double nUpFactor,
+        @RequestParam (value = "shopName", required = false, defaultValue = "") String shopName,
+        @RequestParam (value = "shopAddress", required = false, defaultValue = "") String shopAddress,
+        @RequestParam (value = "shopContact", required = false, defaultValue = "") String shopContact)
     {
         if (file.isEmpty()) return ResponseEntity.badRequest().body("File is empty.");
         if (!"application/pdf".equals(file.getContentType())) return ResponseEntity.badRequest().body("Only PDF files are allowed.");
@@ -124,7 +130,7 @@ public class DocumentController {
                  fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield,
                   magentaPrice, magentaYield, yellowPrice, yellowYield,
                 targetPaperSize, targetPaperArea, targetPaperCost, printLayout, duplexMode, colorPageRange,
-                 monochromePageRange, markupPercentage, minimumFee, finishingCost, discountPercentage, nUpFactor)).start();
+                 monochromePageRange, markupPercentage, minimumFee, finishingCost, discountPercentage, nUpFactor, shopName, shopAddress, shopContact)).start();
             return ResponseEntity.ok("Upload received, processing started...");
         } catch (Exception e) {
             e.printStackTrace();
@@ -138,7 +144,8 @@ public class DocumentController {
         double magentaYield, double yellowPrice, double yellowYield,
         String targetPaperSize, double targetPaperArea, double targetPaperCost,
         String printLayout, String duplexMode, String colorPageRange, String monochromePageRange,
-        double markupPercentage, double minimumFee, double finishingCost, double discountPercentage, double nUpFactor) {
+        double markupPercentage, double minimumFee, double finishingCost, double discountPercentage, double nUpFactor,
+        String shopName, String shopAddress, String shopContact) {
 
         SseEmitter emitter = emitters.get(jobId);
         if (emitter == null) return;
@@ -244,6 +251,8 @@ public class DocumentController {
 
             int numberOfpagesAfterNup = (int) Math.ceil((double) allPages.size() / (N_up * duplexFactor));
 
+            System.out.println("shop name: "+shopName+"| shop adress: "+ shopAddress+"| contact: "+shopContact);
+
             System.out.println("paper cost: " + targetPaperCost +"|" +"target paper name: " + targetPaperSize + " | target page area: " + targetPaperArea);
 
             // Dynamically computed total paper cost
@@ -326,6 +335,9 @@ public class DocumentController {
             report.customerFinalPrice = customerFinalPrice;
             report.Shop_profit = Shop_profit;
             report.tieredMultiplier = tiered_Multiplier;
+            report.shopName = shopName;
+            report.shopAddress = shopAddress;
+            report.shopContact = shopContact;
 
             reports.put(jobId, report);
 
@@ -734,6 +746,26 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
 
                     content.drawImage(pdImage, xPos, yPos, drawWidth, drawHeight);
                 }
+
+
+                // --- INJECT SHOP INFORMATION HERE ---
+                content.beginText();
+                content.setFont(fontBold, 11);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                // Positioned on the right side, aligning horizontally with the main title
+                content.newLineAtOffset(350, 785); 
+                content.showText(report.shopName != null && !report.shopName.isEmpty() ? report.shopName : "Shop Information");
+                
+                content.setFont(fontReg, 10);
+                content.setNonStrokingColor(COLOR_SECONDARY);
+                content.newLineAtOffset(0, -14); // Move down a line for the address
+                content.showText(report.shopAddress != null ? report.shopAddress : "");
+                
+                content.newLineAtOffset(0, -14); // Move down a line for the contact
+                content.showText(report.shopContact != null ? report.shopContact : "");
+                content.endText();
+                // ------------------------------------
+
 
                 content.beginText();
                 content.setFont(fontBold, 18);

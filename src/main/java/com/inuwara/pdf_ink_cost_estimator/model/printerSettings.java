@@ -73,6 +73,15 @@ public class printerSettings {
     @Column(name = "finishing_cost", nullable = false)
     private Double finishingCost = 0.0;
 
+    @Column(name= "shop_name", nullable = true) // Optional field for shop name
+    private String shopName;
+
+    @Column (name= "shop_address", nullable = true) // Optional field for shop address
+    private String shopAddress;
+
+    @Column (name= "shop_contact", nullable = true) // Optional field for shop contact(phone/email)
+    private String shopContact;
+
     // --- Custom Dynamic Papers ---
     @Embeddable
     public static class CustomPaper {
@@ -158,4 +167,13 @@ public class printerSettings {
 
     public Double getLegalCost() { return legalCost; }
     public void setLegalCost(Double legalCost) { this.legalCost = legalCost; }
+
+    public String getShopName() { return shopName; }
+    public void setShopName(String shopName) { this.shopName = shopName; }
+
+    public String getShopAddress() { return shopAddress; }
+    public void setShopAddress(String shopAddress) { this.shopAddress = shopAddress; }
+
+    public String getShopContact() { return shopContact; }
+    public void setShopContact(String shopContact) { this.shopContact = shopContact; }
 }

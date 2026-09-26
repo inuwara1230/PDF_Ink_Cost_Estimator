@@ -73,6 +73,10 @@ public class PrinterSettingsController {
             settingsToUpdate.setMarkupPercentage(updatedSettings.getMarkupPercentage());
             settingsToUpdate.setMinimumFee(updatedSettings.getMinimumFee());
             settingsToUpdate.setFinishingCost(updatedSettings.getFinishingCost());
+
+            settingsToUpdate.setShopName(updatedSettings.getShopName());
+            settingsToUpdate.setShopAddress(updatedSettings.getShopAddress());  
+            settingsToUpdate.setShopContact(updatedSettings.getShopContact());
             
             // Add mapping for custom papers list
             settingsToUpdate.setCustomPapers(updatedSettings.getCustomPapers());

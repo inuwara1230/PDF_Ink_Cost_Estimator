@@ -245,6 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Append resolved values to formData:
         formData.append('printLayout', layout);
         formData.append('nUpFactor', nUpFactor);
+        formData.append('shopName', document.getElementById('shop_name').value || '');
+        formData.append('shopAddress', document.getElementById('shop_address').value || '');
+        formData.append('shopContact', document.getElementById('shop_phone').value || '');
 
 
 
@@ -389,8 +392,14 @@ function getSettingsFormData() {
         markupPercentage: parseFloat(document.getElementById('markup_percentage').value) || 0.0,
         minimumFee: parseFloat(document.getElementById('minimum_fee').value) || 0.0,
         finishingCost: parseFloat(document.getElementById('finishing_cost').value) || 0.0,
-        
+
+        shopName: document.getElementById('shop_name').value || '',
+        shopAddress: document.getElementById('shop_address').value || '',
+        shopContact: document.getElementById('shop_phone').value || '',
+
         customPapers: customPapers 
+
+        
     };
 }
 
@@ -468,6 +477,10 @@ async function loadSavedSettings() {
             document.getElementById('markup_percentage').value = data.markupPercentage ?? 100;
             document.getElementById('minimum_fee').value = data.minimumFee ?? 0;
             document.getElementById('finishing_cost').value = data.finishingCost ?? 0;
+
+            document.getElementById('shop_name').value = data.shopName || '';
+            document.getElementById('shop_address').value = data.shopAddress || '';
+            document.getElementById('shop_phone').value = data.shopContact || '';
 
             customPapers = data.customPapers || [];
 
