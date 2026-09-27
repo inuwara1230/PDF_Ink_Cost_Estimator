@@ -199,8 +199,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (downloadBtn) {
                 downloadBtn.disabled = false;
-                downloadBtn.onclick = function() {
-                    window.location.href = `/api/download_pdf/${jobID}`;
+                downloadBtn.onclick = async function() {
+                    //statusText.innerText = "Saving reports to local folder...";
+
+                    try {
+                        const response = await fetch(`/api/download_pdf/${jobID}`);
+                        //const data = await response.json();
+                    
+                        if (response.ok) {
+                            //statusText.innerText = data.message || "Reports saved and opened successfully!";
+                        } else {
+                            //statusText.innerText = "Error: " + (data.error || "Failed to save reports.");
+                        }
+                    } catch (error) {
+                        console.error("Download endpoint error:", error);
+                        //statusText.innerText = "Network error occurred while generating reports.";
+                    }
                 };
             }
         });

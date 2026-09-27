@@ -30,8 +30,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.awt.Color;
 
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
+
+
+import java.awt.Desktop;
 
 @RestController
 @RequestMapping("/api")
@@ -376,44 +377,103 @@ public class DocumentController {
 
 
 
+//@GetMapping("/download_pdf/{jobId}")
+//public ResponseEntity<byte[]> downloadPdfReport(@PathVariable String jobId) {
+//    CalculationReport report = reports.get(jobId);
+//    if (report == null) {
+//        return ResponseEntity.notFound().build();
+//    }
+//
+//    try (ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
+//         ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
+//
+//        // 1. Generate and add Shop Report to ZIP
+//        byte[] shopPdf = generateShopReport(report);
+//        zos.putNextEntry(new ZipEntry("SHOP_RPT_"+report.fileName + jobId + ".pdf"));
+//        zos.write(shopPdf);
+//        zos.closeEntry();
+//
+//        // 2. Generate and add Customer Report to ZIP
+//        byte[] customerPdf = generateCustomerReport(report);
+//        zos.putNextEntry(new ZipEntry("CUST_RPT_"+report.fileName + jobId + ".pdf"));
+//        zos.write(customerPdf);
+//        zos.closeEntry();
+//
+//        zos.finish();
+//
+//        // 3. Send the ZIP file
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.valueOf("application/zip"));
+//        
+//        String safeFileName = (report.fileName != null ? report.fileName : "Document").replaceAll("[^a-zA-Z0-9.-]", "_");
+//        headers.setContentDispositionFormData("attachment", "REPORTS" + "_" + safeFileName + ".zip");
+//
+//        return ResponseEntity.ok()
+//                .headers(headers)
+//                .body(zipBaos.toByteArray());
+//
+//    } catch (Exception e) {
+//        e.printStackTrace();
+//        return ResponseEntity.internalServerError().build();
+//    }
+//}
+
 @GetMapping("/download_pdf/{jobId}")
-public ResponseEntity<byte[]> downloadPdfReport(@PathVariable String jobId) {
-    CalculationReport report = reports.get(jobId);
+public ResponseEntity<?> downloadPdfReport(@PathVariable String jobId) {
+    // Retrieve the active calculation report[cite: 1]
+    CalculationReport report = reports.get(jobId); 
     if (report == null) {
         return ResponseEntity.notFound().build();
     }
 
-    try (ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
-         ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
+    try {
+        // 1. Generate the PDF byte arrays using your existing methods[cite: 1]
+        byte[] shopPdf = generateShopReport(report); 
+        byte[] customerPdf = generateCustomerReport(report); 
 
-        // 1. Generate and add Shop Report to ZIP
-        byte[] shopPdf = generateShopReport(report);
-        zos.putNextEntry(new ZipEntry("SHOP_RPT_"+report.fileName + jobId + ".pdf"));
-        zos.write(shopPdf);
-        zos.closeEntry();
+        // 2. Format a safe file name based on your existing logic[cite: 1]
+        String safeFileName = (report.fileName != null ? Paths.get(report.fileName).getFileName().toString() : "Document").replaceAll("[^a-zA-Z0-9.-]", "_"); 
 
-        // 2. Generate and add Customer Report to ZIP
-        byte[] customerPdf = generateCustomerReport(report);
-        zos.putNextEntry(new ZipEntry("CUST_RPT_"+report.fileName + jobId + ".pdf"));
-        zos.write(customerPdf);
-        zos.closeEntry();
-
-        zos.finish();
-
-        // 3. Send the ZIP file
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.valueOf("application/zip"));
+        // 3. Define the new dedicated folder path in the user's Downloads directory
+        Path downloadsDir = Paths.get(System.getProperty("user.home"), "Downloads");
+        String folderName = "PRINT_ESTI_" + safeFileName + "_" + jobId;
+        Path jobFolder = downloadsDir.resolve(folderName);
         
-        String safeFileName = (report.fileName != null ? report.fileName : "Document").replaceAll("[^a-zA-Z0-9.-]", "_");
-        headers.setContentDispositionFormData("attachment", "REPORTS" + "_" + safeFileName + ".zip");
+        // Create the directory if it does not already exist
+        Files.createDirectories(jobFolder);
 
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(zipBaos.toByteArray());
+        // 4. Resolve file paths inside the newly created folder
+        Path shopPdfPath = jobFolder.resolve("SHOP_RPT_" + safeFileName + ".pdf");
+        Path customerPdfPath = jobFolder.resolve("CUST_RPT_" + safeFileName + ".pdf");
+
+        // 5. Write files directly to the local disk
+        Files.write(shopPdfPath, shopPdf);
+        Files.write(customerPdfPath, customerPdf);
+
+        // 6. Automatically open the saved files on the user's screen
+        // 6. Reliably open the folder using modern ProcessBuilder (Java 18+)
+        try {
+            String os = System.getProperty("os.name").toLowerCase();
+            if (os.contains("win")) {
+                // Natively trigger Windows Explorer to open the specific directory safely
+                new ProcessBuilder("explorer.exe", jobFolder.toString()).start();
+            } else if (Desktop.isDesktopSupported()) {
+                // Fallback for Mac/Linux environments
+                Desktop.getDesktop().open(jobFolder.toFile());
+            }
+        } catch (Exception ex) {
+            System.err.println("Could not open directory: " + ex.getMessage());
+        }
+
+        // 7. Return a simple success JSON instead of a ZIP file attachment
+        return ResponseEntity.ok(Map.of(
+            "message", "Reports saved to new folder and opened successfully.",
+            "folderPath", jobFolder.toString()
+        ));
 
     } catch (Exception e) {
         e.printStackTrace();
-        return ResponseEntity.internalServerError().build();
+        return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
     }
 }
 
@@ -493,7 +553,7 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.addRect(40, 625, 515, 105);
                 content.fillAndStroke();
 
-                String rawFileName = (report.fileName != null) ? report.fileName : "Unknown File";
+                String rawFileName = (report.fileName != null) ? Paths.get(report.fileName).getFileName().toString() : "Unknown File";
                 List<String> fileNameLines = wrapText("File Name: " + rawFileName, fontReg, 9f, 240f);
 
                 content.beginText();
@@ -792,7 +852,7 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 content.addRect(40, 615, 515, 110);
                 content.fillAndStroke();
 
-                String rawFileName = (report.fileName != null) ? report.fileName : "Unknown File";
+                String rawFileName = (report.fileName != null) ? Paths.get(report.fileName).getFileName().toString() : "Unknown File";
                 List<String> fileNameLines = wrapText("File Name: " + rawFileName, fontReg, 10f, 240f);
 
                 content.beginText();
