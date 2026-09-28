@@ -1,8 +1,5 @@
 package com.inuwara.pdf_ink_cost_estimator;
 
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,9 +15,16 @@ import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.rendering.PDFRenderer;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorConvertOp;
+import java.awt.image.Raster;
+import java.awt.color.ICC_ColorSpace;
+import java.awt.color.ICC_Profile;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
+import jakarta.annotation.PostConstruct;
 
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.core.io.ClassPathResource;
@@ -29,6 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.awt.Color;
+import java.awt.Desktop;
 
 
 
@@ -42,6 +47,22 @@ public class DocumentController {
     
     // Store finished calculation reports mapped by jobId
     private final Map<String, CalculationReport> reports = new ConcurrentHashMap<>();
+
+
+    private ColorConvertOp cmykConvertOp;
+
+    // Load the ICC profile once into memory when the application starts
+    @PostConstruct
+    public void initProfile() {
+        try (InputStream is = new ClassPathResource("profiles/USWebUncoated.icc").getInputStream()) {
+            ICC_Profile cmykProfile = ICC_Profile.getInstance(is);
+            ICC_ColorSpace cmykSpace = new ICC_ColorSpace(cmykProfile);
+            this.cmykConvertOp = new ColorConvertOp(cmykSpace, null);
+        } catch (Exception e) {
+            System.err.println("Warning: Failed to load USWebCoatedSWOP.icc profile: " + e.getMessage());
+        }
+    }
+    // Utility method to convert RGB to CMYK using the loaded ICC profile
 
     // Data Transfer Object for Report Generation
     public static class CalculationReport {
@@ -171,6 +192,7 @@ public class DocumentController {
             double totalAreaMultiplier = 0.0;
 
             double totalCyan = 0.0, totalMagenta = 0.0, totalYellow = 0.0, totalBlack = 0.0;
+
             double accumulated_pdf_page_area = 0.0;
             double total_pdf_pages = allPages.size();
 
@@ -191,26 +213,52 @@ public class DocumentController {
                 double totalPixels = width * height;
 
                 double pageCyan = 0.0, pageMagenta = 0.0, pageYellow = 0.0, pageBlack = 0.0;
-                int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
 
-                for (int pixel : pixels) {
-                    double r = ((pixel >> 16) & 0xff) / 255.0;
-                    double g = ((pixel >> 8) & 0xff) / 255.0;
-                    double b = (pixel & 0xff) / 255.0;
-                
-                    if (isMono) {
-                        double luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-                        pageBlack += (1.0 - luminance);
-                    } else if (isColor) {
-                        double k = 1.0 - Math.max(r, Math.max(g, b));
-                        if (k < 1.0) {
-                            pageCyan += (1.0 - r - k) / (1.0 - k);
-                            pageMagenta += (1.0 - g - k) / (1.0 - k);
-                            pageYellow += (1.0 - b - k) / (1.0 - k);
+
+                //cmykConvertOp != null
+                if(cmykConvertOp != null) {
+                    BufferedImage cmykImage = cmykConvertOp.filter(image, null);
+                    Raster cmykRaster = cmykImage.getRaster();
+
+                    int pixel_[] = new int[4];
+                    for (int y = 0; y < height; y++) {
+                        for (int x = 0; x < width; x++) {
+                            cmykRaster.getPixel(x, y, pixel_);
+                            if (isColor) {
+                                pageCyan += pixel_[0] / 255.0;
+                                pageMagenta += pixel_[1] / 255.0;
+                                pageYellow += pixel_[2] / 255.0;
+                            }
+                            pageBlack += pixel_[3] / 255.0;
                         }
-                        pageBlack += k;
                     }
+                    System.out.println("cmyk convertion happened");
+                    cmykImage.flush();
+                }else {
+                    int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
+
+                    for (int pixel : pixels) {
+                        double r = ((pixel >> 16) & 0xff) / 255.0;
+                        double g = ((pixel >> 8) & 0xff) / 255.0;
+                        double b = (pixel & 0xff) / 255.0;
+                    
+                        if (isMono) {
+                            double luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+                            pageBlack += (1.0 - luminance);
+                        } else if (isColor) {
+                            double k = 1.0 - Math.max(r, Math.max(g, b));
+                            if (k < 1.0) {
+                                pageCyan += (1.0 - r - k) / (1.0 - k);
+                                pageMagenta += (1.0 - g - k) / (1.0 - k);
+                                pageYellow += (1.0 - b - k) / (1.0 - k);
+                            }
+                            pageBlack += k;
+                        }
+                    }
+                    System.out.println("normal rgb convertion happened");
                 }
+                
+                
 
                 image.flush();
                 if (isColor) {
@@ -225,6 +273,8 @@ public class DocumentController {
             
             // Replaced switch blocks with the dynamically calculated frontend values!
             double ink_cost_multiplier = targetPaperArea / final_pdf_page_area;
+
+            System.out.print("iso coverage: "+ isoCoverage);
 
             double cyanCost = totalCyan * ink_cost_multiplier * (cyanPrice / (cyanYield * isoCoverage)); 
             double magentaCost = totalMagenta * ink_cost_multiplier * (magentaPrice / (magentaYield * isoCoverage));
