@@ -12,6 +12,7 @@ let editingIndex = -1; // Tracks the index of the custom paper currently being e
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Auto-load existing user settings on page load
     loadSavedSettings();
+    loadIccProfiles();
 
     const printModeSelect = document.getElementById('printMode');
     const customNContainer = document.getElementById('customNContainer');
@@ -171,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sides = document.getElementById('duplexMode').value;
         const color_page_range = document.getElementById('colorPages').value;
         const monochrome_page_range = document.getElementById('monoPages').value;
+        const selectedIccProfile = document.getElementById('iccProfileSelect').value;
 
         if (!file) {
             document.getElementById('uploadStatus').innerText = 'Please select a PDF file.';
@@ -228,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         formData.append('pdfDocument', file);
         formData.append('jobID', jobID);
+        formData.append('iccProfile', selectedIccProfile);
 
         formData.append('blackPrice', document.getElementById('monochrome_cost').value || '0');
         formData.append('blackYield', document.getElementById('monochrome_yield').value || '1');
@@ -288,11 +291,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-
-           
-
-
 });
+
+
+async function loadIccProfiles() {
+    const select = document.getElementById('iccProfileSelect');
+    if (!select) return;
+
+    try {
+        const response = await fetch('/api/icc_profiles');
+        if (response.ok) {
+            const profiles = await response.json();
+            select.innerHTML = '';
+
+            if (profiles.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = 'USWebUncoated.icc';
+                opt.textContent = 'USWebUncoated.icc (Default)';
+                select.appendChild(opt);
+                return;
+            }
+
+            profiles.forEach(profile => {
+                const opt = document.createElement('option');
+                opt.value = profile;
+                opt.textContent = profile;
+                select.appendChild(opt);
+            });
+        }
+    } catch (err) {
+        console.error("Failed to load ICC profiles:", err);
+    }
+}
 
 // Custom Paper Frontend Management
 function updatePaperDropdown() {

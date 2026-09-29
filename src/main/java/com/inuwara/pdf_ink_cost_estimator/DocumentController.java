@@ -28,6 +28,9 @@ import jakarta.annotation.PostConstruct;
 
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.Resource;
+
 import org.springframework.util.StreamUtils;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,24 +47,68 @@ import java.awt.Desktop;
 public class DocumentController {
 
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
-    
     // Store finished calculation reports mapped by jobId
     private final Map<String, CalculationReport> reports = new ConcurrentHashMap<>();
 
 
-    private ColorConvertOp cmykConvertOp;
-
-    // Load the ICC profile once into memory when the application starts
-    @PostConstruct
-    public void initProfile() {
-        try (InputStream is = new ClassPathResource("profiles/USWebUncoated.icc").getInputStream()) {
-            ICC_Profile cmykProfile = ICC_Profile.getInstance(is);
-            ICC_ColorSpace cmykSpace = new ICC_ColorSpace(cmykProfile);
-            this.cmykConvertOp = new ColorConvertOp(cmykSpace, null);
+    @GetMapping("/icc_profiles")
+    public ResponseEntity<List<String>> getIccProfiles() {
+        List<String> profileNames = new ArrayList<>();
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        try {
+            // Scan for all files in the profiles classpath folder
+            Resource[] resources = resolver.getResources("classpath:profiles/*");
+            for (Resource resource : resources) {
+                String filename = resource.getFilename();
+                if (filename != null && (filename.toLowerCase().endsWith(".icc") || filename.toLowerCase().endsWith(".icm"))) {
+                    try (InputStream is = resource.getInputStream()) {
+                        // Attempt to parse, but fallback to including the filename if java.awt strict validation fails
+                        ICC_Profile profile = ICC_Profile.getInstance(is);
+                        if (profile != null) {
+                            profileNames.add(filename);
+                            continue;
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Notice: Skipping strict Java AWT parsing for " + filename + " (adding by extension match).");
+                    }
+                    // Add the file to the dropdown list based on valid extension
+                    profileNames.add(filename);
+                }
+            }
+            return ResponseEntity.ok(profileNames);
         } catch (Exception e) {
-            System.err.println("Warning: Failed to load USWebCoatedSWOP.icc profile: " + e.getMessage());
+            return ResponseEntity.status(500).build();
         }
     }
+
+    // Dynamic ICC Profile loader per request
+    private ColorConvertOp createCmykConvertOp(String profileName) {
+        if (profileName == null || profileName.trim().isEmpty()) {
+            profileName = "USWebUncoated.icc";
+        }
+        try (InputStream is_ = new ClassPathResource("profiles/" + profileName).getInputStream()) {
+            ICC_Profile cmykProfile = ICC_Profile.getInstance(is_);
+            ICC_ColorSpace cmykSpace = new ICC_ColorSpace(cmykProfile);
+            return new ColorConvertOp(cmykSpace, null);
+        } catch (Exception e) {
+            System.err.println("Warning: Failed to load ICC profile (" + profileName + "): " + e.getMessage());
+            return null;
+        }
+    }
+
+    //private ColorConvertOp cmykConvertOp;
+
+    // Load the ICC profile once into memory when the application starts
+    //@PostConstruct
+    //public void initProfile() {
+    //    try (InputStream is = new ClassPathResource("profiles/USWebUncoated.icc").getInputStream()) {
+    //        ICC_Profile cmykProfile = ICC_Profile.getInstance(is);
+    //        ICC_ColorSpace cmykSpace = new ICC_ColorSpace(cmykProfile);
+    //        this.cmykConvertOp = new ColorConvertOp(cmykSpace, null);
+    //    } catch (Exception e) {
+    //        System.err.println("Warning: Failed to load USWebCoatedSWOP.icc profile: " + e.getMessage());
+    //    }
+    //}
     // Utility method to convert RGB to CMYK using the loaded ICC profile
 
     // Data Transfer Object for Report Generation
@@ -116,6 +163,7 @@ public class DocumentController {
     public ResponseEntity<String> handlePdfUpload(
         @RequestParam("pdfDocument") MultipartFile file,
         @RequestParam(value = "jobID", required = false) String jobID,
+        @RequestParam(value = "iccProfile", required = false, defaultValue = "USWebUncoated.icc") String iccProfile,
         @RequestParam(value = "blackPrice", required = false, defaultValue = "0") double blackPrice,
         @RequestParam(value = "blackYield", required = false, defaultValue = "1") double blackYield,
         @RequestParam(value = "isoCoverage", required = false, defaultValue = "5") double isoCoverage,
@@ -148,7 +196,7 @@ public class DocumentController {
             double fileSizeInBytes = file.getSize();
             String fileName = file.getOriginalFilename();
             byte[] fileBytes = file.getBytes();
-            new Thread(() -> processPDFinBackground(fileBytes, fileName, jobID,
+            new Thread(() -> processPDFinBackground(fileBytes, fileName, jobID,iccProfile,
                  fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield,
                   magentaPrice, magentaYield, yellowPrice, yellowYield,
                 targetPaperSize, targetPaperArea, targetPaperCost, printLayout, duplexMode, colorPageRange,
@@ -161,7 +209,7 @@ public class DocumentController {
     }
 
     private void processPDFinBackground(byte[] fileBytes, String fileName, 
-        String jobId, double fileSizeInBytes, double blackPrice, double blackYield,
+        String jobId,String iccProfile, double fileSizeInBytes, double blackPrice, double blackYield,
         double isoCoverage, double cyanPrice, double cyanYield, double magentaPrice, 
         double magentaYield, double yellowPrice, double yellowYield,
         String targetPaperSize, double targetPaperArea, double targetPaperCost,
@@ -171,6 +219,10 @@ public class DocumentController {
 
         SseEmitter emitter = emitters.get(jobId);
         if (emitter == null) return;
+
+        // Instantiate profile converter dynamically for this job
+        System.out.println("Loading ICC profile: " + iccProfile);
+        ColorConvertOp cmykConvertOp = createCmykConvertOp(iccProfile);
 
         try (PDDocument document = Loader.loadPDF(fileBytes)) {
             long startTime = System.currentTimeMillis();
@@ -195,6 +247,7 @@ public class DocumentController {
 
             double accumulated_pdf_page_area = 0.0;
             double total_pdf_pages = allPages.size();
+            String whichMethod_Used ="";
 
             for (Integer i : allPages) {
                 boolean isMono = monoPages.contains(i);
@@ -214,7 +267,7 @@ public class DocumentController {
 
                 double pageCyan = 0.0, pageMagenta = 0.0, pageYellow = 0.0, pageBlack = 0.0;
 
-
+                
                 //cmykConvertOp != null
                 if(cmykConvertOp != null) {
                     BufferedImage cmykImage = cmykConvertOp.filter(image, null);
@@ -232,6 +285,7 @@ public class DocumentController {
                             pageBlack += pixel_[3] / 255.0;
                         }
                     }
+                    whichMethod_Used = "| Profile Used: "+iccProfile;
                     System.out.println("cmyk convertion happened");
                     cmykImage.flush();
                 }else {
@@ -255,6 +309,7 @@ public class DocumentController {
                             pageBlack += k;
                         }
                     }
+                    whichMethod_Used = "|Normal RGB Conversion";
                     System.out.println("normal rgb convertion happened");
                 }
                 
@@ -395,7 +450,8 @@ public class DocumentController {
             String summaryMessage = String.format("File size: %.2f MB | Analyzed: %d/%d\n" +
                     "Mono Pages: %d | Color Pages: %d\n" +
                     "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%, K: %.2f%%\n" +
-                    "Processing Time: %d s\n\n" +
+                    "Processing Time: %d s\n" +
+                    "Method Used: %s\n\n" +
                     "Ink Cost after scalling: %.2f\n" +
                     "Ink Cost after N-up: %.2f\n\n" +
                     "number of Sheets after N-up: %d\n" +
@@ -412,7 +468,7 @@ public class DocumentController {
                     fileSizeInMB, allPages.size(), totalPages,
                     monoPages.size(), colorPages.size(),
                     totalCyan, totalMagenta, totalYellow, totalBlack,
-                    processingTime, totalInkCost, ink_cost_after_N_up,
+                    processingTime,whichMethod_Used, totalInkCost, ink_cost_after_N_up,
                     numberOfpagesAfterNup, costOfASingle_PaperSheet, totalPaperCost, tiered_Multiplier,finalCost,
                      markupPercentage, minimumFee, finishingCost, discountPercentage, customerFinalPrice, Shop_profit);
 
