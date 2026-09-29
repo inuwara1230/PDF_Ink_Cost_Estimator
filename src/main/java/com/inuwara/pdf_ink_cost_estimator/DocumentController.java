@@ -22,7 +22,7 @@ import java.awt.color.ICC_Profile;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+
 
 import jakarta.annotation.PostConstruct;
 
@@ -37,7 +37,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.awt.Color;
 import java.awt.Desktop;
-
+import java.util.concurrent.ConcurrentHashMap;
 
 
 import java.awt.Desktop;
@@ -49,6 +49,8 @@ public class DocumentController {
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     // Store finished calculation reports mapped by jobId
     private final Map<String, CalculationReport> reports = new ConcurrentHashMap<>();
+
+    
 
 
     @GetMapping("/icc_profiles")
@@ -145,6 +147,9 @@ public class DocumentController {
         public String shopName;
         public String shopAddress;
         public String shopContact;
+
+        public String whichMethod_Used;
+        public int pdf_page_count; // Store the number of pages analyzed for reporting
     }
 
     @GetMapping(value = "/progress/{jobId}", produces = "text/event-stream")
@@ -219,6 +224,8 @@ public class DocumentController {
 
         SseEmitter emitter = emitters.get(jobId);
         if (emitter == null) return;
+
+        
 
         // Instantiate profile converter dynamically for this job
         System.out.println("Loading ICC profile: " + iccProfile);
@@ -444,6 +451,8 @@ public class DocumentController {
             report.shopName = shopName;
             report.shopAddress = shopAddress;
             report.shopContact = shopContact;
+            report.whichMethod_Used = whichMethod_Used;
+            report.pdf_page_count = totalPages;
 
             reports.put(jobId, report);
 
@@ -474,6 +483,9 @@ public class DocumentController {
 
             emitter.send(summaryMessage);
             emitter.send(SseEmitter.event().name("COMPLETE").data("Analysis complete!"));
+
+           
+
             emitter.complete();
 
         } catch (Exception e) {
