@@ -157,6 +157,8 @@ public class DocumentController {
 
         public String whichMethod_Used;
         public int pdf_page_count; // Store the number of pages analyzed for reporting
+
+        public Double CostPerPage;
     }
 
     @GetMapping(value = "/progress/{jobId}", produces = "text/event-stream")
@@ -299,7 +301,7 @@ public class DocumentController {
                             pageBlack += pixel_[3] / 255.0;
                         }
                     }
-                    whichMethod_Used = "| Profile Used: "+iccProfile;
+                    whichMethod_Used = iccProfile;
                     System.out.println("cmyk convertion happened");
                     cmykImage.flush();
                 }else {
@@ -323,7 +325,7 @@ public class DocumentController {
                             pageBlack += k;
                         }
                     }
-                    whichMethod_Used = "|Normal RGB Conversion";
+                    whichMethod_Used = "Normal RGB Conversion";
                     System.out.println("normal rgb convertion happened");
                 }
                 
@@ -420,6 +422,8 @@ public class DocumentController {
 
             int Shop_profit = customerFinalPrice - finalCost;
 
+            Double costPerPage = (double) customerFinalPrice / numberOfpagesAfterNup;
+
             CalculationReport report = new CalculationReport();
             report.jobId = jobId;
             report.fileSizeMB = fileSizeInMB;
@@ -460,6 +464,7 @@ public class DocumentController {
             report.shopContact = shopContact;
             report.whichMethod_Used = whichMethod_Used;
             report.pdf_page_count = totalPages;
+            report.CostPerPage = costPerPage;
 
             reports.put(jobId, report);
 
@@ -480,6 +485,7 @@ public class DocumentController {
                     "Minimum Fee: %.2f\n" +
                     "Finishing Cost: %.2f\n" +
                     "Discount: %.2f%%\n\n" +
+                    "Customer's Cost per sheet of paper: %.2f\n" +
                     "Customer Final Price: %d\n" +
                     "Shop Profit: %d",
                     jobId,
@@ -488,7 +494,7 @@ public class DocumentController {
                     totalCyan, totalMagenta, totalYellow, totalBlack,
                     processingTime,whichMethod_Used, totalInkCost, ink_cost_after_N_up,
                     numberOfpagesAfterNup, costOfASingle_PaperSheet, totalPaperCost, tiered_Multiplier,finalCost,
-                     markupPercentage, minimumFee, finishingCost, discountPercentage, customerFinalPrice, Shop_profit);
+                     markupPercentage, minimumFee, finishingCost, discountPercentage,costPerPage,customerFinalPrice, Shop_profit);
 
             emitter.send(summaryMessage);
             emitter.send(SseEmitter.event().name("COMPLETE").data("Analysis complete!"));
@@ -535,6 +541,7 @@ public ResponseEntity<String> recalculateProfit(
 
     double customerPriceBeforeCeiling = subtotal - (subtotal * (report.discountPercentage / 100.0));
     report.customerFinalPrice = (int) Math.ceil(customerPriceBeforeCeiling);
+    report.CostPerPage = (double) report.customerFinalPrice / report.numberOfPagesAfterNup;
     report.Shop_profit = report.customerFinalPrice - report.finalCost;
 
     // Update the cache explicitly (optional but good practice)
@@ -559,6 +566,7 @@ public ResponseEntity<String> recalculateProfit(
             "Minimum Fee: %.2f\n" +
             "Finishing Cost: %.2f\n" +
             "Discount: %.2f%%\n\n" +
+            "Customer's Cost per sheet of paper: %.2f\n" +
             "Customer Final Price: %d\n" +
             "Shop Profit: %d",
             jobId, report.fileSizeMB, report.totalPages, report.pdf_page_count,
@@ -566,7 +574,7 @@ public ResponseEntity<String> recalculateProfit(
             report.cyanUsage, report.magentaUsage, report.yellowUsage, report.blackUsage,
             report.processingTimeSeconds, report.whichMethod_Used, report.totalInkCost, report.inkCostAfterNup,
             report.numberOfPagesAfterNup, report.costOfASingle_PaperSheet, report.totalPaperCost, report.tieredMultiplier, report.finalCost,
-            report.markupPercentage, report.minimumFee, report.finishingCost, report.discountPercentage, report.customerFinalPrice, report.Shop_profit);
+            report.markupPercentage, report.minimumFee, report.finishingCost, report.discountPercentage, report.CostPerPage, report.customerFinalPrice, report.Shop_profit);
 
             
          
@@ -1056,7 +1064,9 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 }
                 
                 content.showText("Target Paper Size: " + report.targetPaperSize); content.newLine();
-                content.showText("Total Document Pages: " + report.totalPages);
+                content.showText("Print Layout (N-up): " + report.printLayout); content.newLine();
+                content.showText("Duplex Mode: " + report.duplexMode); content.newLine();
+                //content.showText("Total Document Pages: " + report.totalPages);
                 content.endText();
 
                 String monoStr = "Mono Pages: " + formatPageRanges(report.monoPages);
@@ -1118,10 +1128,11 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 content.showText("Finishing Services: " + (report.finishingCost > 0 ? String.format("%.2f", report.finishingCost) : "None")); content.newLine();
                 content.showText("Discount Applied: " + (report.discountPercentage > 0 ? String.format("%.1f%%", report.discountPercentage) : "0.0%")); content.newLine();
                 if (report.minimumFee > 0) {
-                    content.showText(String.format("Minimum Order Fee Threshold: %.2f", report.minimumFee));
+                    content.showText(String.format("Minimum Order Fee Threshold: %.2f", report.minimumFee));content.newLine();
                 } else {
-                    content.showText("Standard Pricing Tier Applied");
+                    content.showText("Standard Pricing Tier Applied");content.newLine();
                 }
+                content.showText(String.format("Cost per sheet of paper: %.2f", report.CostPerPage));
                 content.endText();
 
                 content.setNonStrokingColor(COLOR_TOTAL_BG);
@@ -1134,7 +1145,7 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 content.setFont(fontBold, 11);
                 content.setNonStrokingColor(COLOR_TOTAL_TEXT);
                 content.newLineAtOffset(60, 425);
-                content.showText("TOTAL ESTIMATED COST");
+                content.showText("TOTAL COST");
                 content.endText();
 
                 content.beginText();
