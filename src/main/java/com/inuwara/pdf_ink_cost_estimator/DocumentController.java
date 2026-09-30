@@ -42,13 +42,20 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import java.awt.Desktop;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import java.util.concurrent.TimeUnit;
+
 @RestController
 @RequestMapping("/api")
 public class DocumentController {
 
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     // Store finished calculation reports mapped by jobId
-    private final Map<String, CalculationReport> reports = new ConcurrentHashMap<>();
+    private final Cache<String, CalculationReport> reports = Caffeine.newBuilder()
+        .expireAfterWrite(30, TimeUnit.MINUTES)
+        .maximumSize(1000)
+        .build();
 
     
 
@@ -456,7 +463,8 @@ public class DocumentController {
 
             reports.put(jobId, report);
 
-            String summaryMessage = String.format("File size: %.2f MB | Analyzed: %d/%d\n" +
+            String summaryMessage = String.format("Calculated profit for Job ID: %s\n" +
+                    "File size: %.2f MB | Analyzed: %d/%d\n" +
                     "Mono Pages: %d | Color Pages: %d\n" +
                     "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%, K: %.2f%%\n" +
                     "Processing Time: %d s\n" +
@@ -474,6 +482,7 @@ public class DocumentController {
                     "Discount: %.2f%%\n\n" +
                     "Customer Final Price: %d\n" +
                     "Shop Profit: %d",
+                    jobId,
                     fileSizeInMB, allPages.size(), totalPages,
                     monoPages.size(), colorPages.size(),
                     totalCyan, totalMagenta, totalYellow, totalBlack,
@@ -495,51 +504,81 @@ public class DocumentController {
 
 
 
-//@GetMapping("/download_pdf/{jobId}")
-//public ResponseEntity<byte[]> downloadPdfReport(@PathVariable String jobId) {
-//    CalculationReport report = reports.get(jobId);
-//    if (report == null) {
-//        return ResponseEntity.notFound().build();
-//    }
-//
-//    try (ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
-//         ZipOutputStream zos = new ZipOutputStream(zipBaos)) {
-//
-//        // 1. Generate and add Shop Report to ZIP
-//        byte[] shopPdf = generateShopReport(report);
-//        zos.putNextEntry(new ZipEntry("SHOP_RPT_"+report.fileName + jobId + ".pdf"));
-//        zos.write(shopPdf);
-//        zos.closeEntry();
-//
-//        // 2. Generate and add Customer Report to ZIP
-//        byte[] customerPdf = generateCustomerReport(report);
-//        zos.putNextEntry(new ZipEntry("CUST_RPT_"+report.fileName + jobId + ".pdf"));
-//        zos.write(customerPdf);
-//        zos.closeEntry();
-//
-//        zos.finish();
-//
-//        // 3. Send the ZIP file
-//        HttpHeaders headers = new HttpHeaders();
-//        headers.setContentType(MediaType.valueOf("application/zip"));
-//        
-//        String safeFileName = (report.fileName != null ? report.fileName : "Document").replaceAll("[^a-zA-Z0-9.-]", "_");
-//        headers.setContentDispositionFormData("attachment", "REPORTS" + "_" + safeFileName + ".zip");
-//
-//        return ResponseEntity.ok()
-//                .headers(headers)
-//                .body(zipBaos.toByteArray());
-//
-//    } catch (Exception e) {
-//        e.printStackTrace();
-//        return ResponseEntity.internalServerError().build();
-//    }
-//}
+@PostMapping("/recalculate_profit")
+public ResponseEntity<String> recalculateProfit(
+        @RequestParam("jobID") String jobId,
+        @RequestParam("discountPercentage") double discountPercentage) {
+
+    CalculationReport report = reports.getIfPresent(jobId);
+    if (report == null) {
+        return ResponseEntity.badRequest().body("Job not found or has expired in cache.");
+    }
+
+    // Apply the new discount
+    System.out.println("====Recalculating profit for Job ID: " + jobId + " with new discount: " + discountPercentage +"=====");
+
+    report.discountPercentage = discountPercentage;
+
+    System.out.println("Discount applied: " + report.discountPercentage);
+    System.out.println("Final Cost before markup: " + report.finalCost);
+    System.out.println("Markup Percentage: " + report.markupPercentage);
+    System.out.println("Tiered Multiplier: " + report.tieredMultiplier);
+    System.out.println("Finishing Cost: " + report.finishingCost);
+    System.out.println("Minimum Fee: " + report.minimumFee);
+
+    double markedUpCost = report.finalCost * (1 + (report.markupPercentage / 100.0) * report.tieredMultiplier);
+    double subtotal = markedUpCost + report.finishingCost;
+
+    if (subtotal < report.minimumFee) {
+        subtotal = report.minimumFee;
+    }
+
+    double customerPriceBeforeCeiling = subtotal - (subtotal * (report.discountPercentage / 100.0));
+    report.customerFinalPrice = (int) Math.ceil(customerPriceBeforeCeiling);
+    report.Shop_profit = report.customerFinalPrice - report.finalCost;
+
+    // Update the cache explicitly (optional but good practice)
+    reports.put(jobId, report);
+
+    // Broadcast the updated results through the existing SSE pipeline
+   
+    String summaryMessage = String.format("Recalculated profit for Job ID: %s\n" +
+            "File size: %.2f MB | Analyzed: %d/%d\n" +
+            "Mono Pages: %d | Color Pages: %d\n" +
+            "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%, K: %.2f%%\n" +
+            "Processing Time: %d s\n" +
+            "Method Used: %s\n\n" +
+            "Ink Cost after scalling: %.2f\n" +
+            "Ink Cost after N-up: %.2f\n\n" +
+            "number of Sheets after N-up: %d\n" +
+            "Cost per Sheet: %.2f\n" +
+            "Total Paper Cost: %.2f\n" +
+            "Tiered Multiplier: %.2f\n" +
+            "Final Cost(Ink + Paper): %d\n\n"+
+            "Markup: %.2f%%\n" +
+            "Minimum Fee: %.2f\n" +
+            "Finishing Cost: %.2f\n" +
+            "Discount: %.2f%%\n\n" +
+            "Customer Final Price: %d\n" +
+            "Shop Profit: %d",
+            jobId, report.fileSizeMB, report.totalPages, report.pdf_page_count,
+            report.monoPagesCount, report.colorPagesCount,
+            report.cyanUsage, report.magentaUsage, report.yellowUsage, report.blackUsage,
+            report.processingTimeSeconds, report.whichMethod_Used, report.totalInkCost, report.inkCostAfterNup,
+            report.numberOfPagesAfterNup, report.costOfASingle_PaperSheet, report.totalPaperCost, report.tieredMultiplier, report.finalCost,
+            report.markupPercentage, report.minimumFee, report.finishingCost, report.discountPercentage, report.customerFinalPrice, report.Shop_profit);
+
+            
+         
+        
+    
+    return ResponseEntity.ok(summaryMessage);
+}
 
 @GetMapping("/download_pdf/{jobId}")
 public ResponseEntity<?> downloadPdfReport(@PathVariable String jobId) {
     // Retrieve the active calculation report[cite: 1]
-    CalculationReport report = reports.get(jobId); 
+    CalculationReport report = reports.getIfPresent(jobId); 
     if (report == null) {
         return ResponseEntity.notFound().build();
     }
@@ -803,7 +842,32 @@ private byte[] generateShopReport(CalculationReport report) throws Exception {
                 content.showText(String.format("Tiered multiplier: %.2f", report.tieredMultiplier));
                 content.endText();
 
-                float boxY = 195f;
+               content.beginText();
+                content.setFont(fontBold, 12);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(40, 265);
+                content.showText("Profit Summary");
+                content.endText();
+
+                // 1. Details Box (Placed below the title)
+                // Bottom-left Y is 180. Height is 70. Top edge is 250 (leaves 15pt gap below title)
+                content.setNonStrokingColor(COLOR_CARD_BG);
+                content.setStrokingColor(COLOR_CARD_BORDER);
+                content.addRect(40, 180, 515, 70);
+                content.fillAndStroke();
+
+                content.beginText();
+                content.setFont(fontReg, 10);
+                content.setLeading(16f);
+                content.setNonStrokingColor(COLOR_PRIMARY);
+                content.newLineAtOffset(55, 235); // 20pt padding from top of the box
+                content.showText(String.format("Markup Percentage: %.2f%%", report.markupPercentage)); content.newLine();
+                content.showText(String.format("Minimum Fee: %.2f", report.minimumFee)); content.newLine();
+                content.showText(String.format("Finishing Cost: %.2f", report.finishingCost)); content.newLine();
+                content.showText(String.format("Discount Percentage: %.2f%%", report.discountPercentage));
+                content.endText();
+
+                float boxY = 100f;
                 float boxH = 65f;
                 float titleY = boxY + 40f;
                 float valueY = boxY + 18f;

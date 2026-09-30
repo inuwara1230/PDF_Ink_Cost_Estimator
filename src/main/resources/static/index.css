@@ -243,17 +243,41 @@ button[type="submit"] { background-color: #22c55e; color: #ffffff; }
 }
 
 #ReportDownloadBynContainer {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch; /* Stretches both buttons to match the exact same height */
+    gap: 12px;
     flex-shrink: 0;
 }
 
-#downloadPdfBtn {
-    width: 100%;
-    padding: 1.5vh;
+#ReportDownloadBynContainer {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch; /* Keeps equal height for both buttons */
+    gap: 12px;
+    width: 100%; /* Stretches the container to full section width */
+    flex-shrink: 0;
+}
+
+#recalculateBtn {
+    background-color: #10b981;
+    color: white;
+    padding: 1.5vh 1.2vw;
     font-size: clamp(13px, 2.5vh, 16px);
+    white-space: nowrap; /* Keeps recalculate button width fitted to its label */
+}
+
+#downloadPdfBtn {
+    flex: 1; /* Stretches to fill all remaining horizontal space on the right */
     background-color: #3b82f6;
     color: white;
+    padding: 1.5vh 1.2vw;
+    font-size: clamp(13px, 2.5vh, 16px);
+    white-space: nowrap;
 }
-#downloadPdfBtn:disabled {
+
+#downloadPdfBtn:disabled,
+#recalculateBtn:disabled {
     background-color: #475569;
     color: #94a3b8;
     cursor: not-allowed;

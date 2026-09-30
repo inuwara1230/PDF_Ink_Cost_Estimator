@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Auto-load existing user settings on page load
     loadSavedSettings();
     loadIccProfiles();
+    let ID_for_job = null;
 
     const printModeSelect = document.getElementById('printMode');
     const customNContainer = document.getElementById('customNContainer');
@@ -180,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const jobID = crypto.randomUUID();
+        ID_for_job = jobID; // Store the job ID for potential future use
         const statusText = document.getElementById('uploadStatus');
         statusText.innerText = 'Connecting to server...';
 
@@ -219,6 +221,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 };
             }
+
+            if (recalculateBtn) {
+                recalculateBtn.disabled = false;
+
+                recalculateBtn.onclick = async function() {
+                    const newDiscount = document.getElementById('job_discount').value || '0';
+                    
+                    const statusText = document.getElementById('uploadStatus');
+                    statusText.innerText = 'Recalculating...';
+                
+                    
+                    
+                    const formData = new FormData();
+                    formData.append('jobID', jobID);
+                    formData.append('discountPercentage', newDiscount);
+                
+                    try {
+                        const response = await fetch('/api/recalculate_profit', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (response.ok) {
+                            const data = await response.text();
+                            statusText.innerHTML = data.replace(/\n/g, '<br>'); 
+                        }else {
+                            const errorMsg = await response.text();
+                            statusText.innerText = `Error: ${errorMsg}`;
+                        }
+                    } catch (error) {
+                        console.error('Error recalculating profit:', error);
+                        statusText.innerText = 'Failed to recalculate.';
+                        
+                    }
+                    
+                };
+            }
+
         });
 
         eventSource.onerror = function(err) {
