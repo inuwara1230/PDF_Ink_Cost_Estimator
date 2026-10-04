@@ -24,7 +24,7 @@ import java.io.InputStream;
 import java.util.*;
 
 
-import jakarta.annotation.PostConstruct;
+//import jakarta.annotation.PostConstruct;
 
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.core.io.ClassPathResource;
@@ -40,11 +40,13 @@ import java.awt.Desktop;
 import java.util.concurrent.ConcurrentHashMap;
 
 
-import java.awt.Desktop;
+//import java.awt.Desktop;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.concurrent.TimeUnit;
+
+
 
 @RestController
 @RequestMapping("/api")
@@ -159,6 +161,9 @@ public class DocumentController {
         public int pdf_page_count; // Store the number of pages analyzed for reporting
 
         public Double CostPerPage;
+        public int N_up;
+
+        
     }
 
     @GetMapping(value = "/progress/{jobId}", produces = "text/event-stream")
@@ -208,7 +213,7 @@ public class DocumentController {
 
         try {
             double fileSizeInBytes = file.getSize();
-            String fileName = file.getOriginalFilename();
+            String fileName = Paths.get(file.getOriginalFilename()).getFileName().toString();
             byte[] fileBytes = file.getBytes();
             new Thread(() -> processPDFinBackground(fileBytes, fileName, jobID,iccProfile,
                  fileSizeInBytes, blackPrice, blackYield, isoCoverage, cyanPrice, cyanYield,
@@ -231,8 +236,19 @@ public class DocumentController {
         double markupPercentage, double minimumFee, double finishingCost, double discountPercentage, double nUpFactor,
         String shopName, String shopAddress, String shopContact) {
 
-        SseEmitter emitter = emitters.get(jobId);
-        if (emitter == null) return;
+        // Retry loop to account for SSE connection handshake latency
+        SseEmitter emitter = null;
+        for (int i = 0; i < 15; i++) {
+            emitter = emitters.get(jobId);
+            if (emitter != null) break;
+            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+        }
+
+
+        if (emitter == null) {
+            System.err.println("Failed to bind SSE emitter for Job ID: " + jobId);
+            return;
+        }
 
         
 
@@ -241,6 +257,16 @@ public class DocumentController {
         ColorConvertOp cmykConvertOp = createCmykConvertOp(iccProfile);
 
         try (PDDocument document = Loader.loadPDF(fileBytes)) {
+
+            if (document.isEncrypted()) {
+                System.out.println("PDF is encrypted. Job ID: " + jobId);
+                try {
+                    emitter.send(SseEmitter.event().name("ERROR").data("This PDF is password protected or encrypted. Please upload an unlocked file."));
+                } catch (Exception ignore) {}
+                emitter.complete();
+                return;
+            }
+
             long startTime = System.currentTimeMillis();
             double fileSizeInMB = (double) fileSizeInBytes / (1024.0 * 1024.0);
             PDFRenderer renderer = new PDFRenderer(document);
@@ -347,12 +373,14 @@ public class DocumentController {
 
             System.out.print("iso coverage: "+ isoCoverage);
 
-            double cyanCost = totalCyan * ink_cost_multiplier * (cyanPrice / (cyanYield * isoCoverage)); 
-            double magentaCost = totalMagenta * ink_cost_multiplier * (magentaPrice / (magentaYield * isoCoverage));
-            double yellowCost = totalYellow * ink_cost_multiplier * (yellowPrice / (yellowYield * isoCoverage));
-            double blackCost = totalBlack * ink_cost_multiplier * (blackPrice / (blackYield * isoCoverage));
+            double cyanCost = totalCyan * (cyanPrice / (cyanYield * isoCoverage)); 
+            double magentaCost = totalMagenta * (magentaPrice / (magentaYield * isoCoverage));
+            double yellowCost = totalYellow  * (yellowPrice / (yellowYield * isoCoverage));
+            double blackCost = totalBlack  * (blackPrice / (blackYield * isoCoverage));
 
-            double totalInkCost = cyanCost + magentaCost + yellowCost + blackCost;
+            double total_inkcost_befor_scalling = cyanCost + magentaCost + yellowCost + blackCost;
+
+            double totalInkCost = total_inkcost_befor_scalling * ink_cost_multiplier;
 
             int N_up = switch (printLayout) {
                 case "booklet", "2up" -> 2;
@@ -407,7 +435,7 @@ public class DocumentController {
             } else {
                 tiered_Multiplier = 0.97; 
             }
-            double markedUpCost = finalCost * (1+(markupPercentage / 100.0)*tiered_Multiplier);
+            double markedUpCost = finalCost * (1+((markupPercentage / 100.0)*tiered_Multiplier));
             double subtotal = markedUpCost + finishingCost;
 
             if (subtotal < minimumFee) {
@@ -422,7 +450,7 @@ public class DocumentController {
 
             int Shop_profit = customerFinalPrice - finalCost;
 
-            Double costPerPage = (double) customerFinalPrice / numberOfpagesAfterNup;
+            Double costPerPage = (double) customerFinalPrice / allPages.size();
 
             CalculationReport report = new CalculationReport();
             report.jobId = jobId;
@@ -465,46 +493,55 @@ public class DocumentController {
             report.whichMethod_Used = whichMethod_Used;
             report.pdf_page_count = totalPages;
             report.CostPerPage = costPerPage;
+            report.N_up = N_up;
+            
 
             reports.put(jobId, report);
 
-            String summaryMessage = String.format("Calculated profit for Job ID: %s\n" +
+            String summaryMessage = String.format("Calculated for Job ID: %s\n" +"File name: %s\n" +
                     "File size: %.2f MB | Analyzed: %d/%d\n" +
                     "Mono Pages: %d | Color Pages: %d\n" +
                     "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%, K: %.2f%%\n" +
                     "Processing Time: %d s\n" +
                     "Method Used: %s\n\n" +
                     "Ink Cost after scalling: %.2f\n" +
-                    "Ink Cost after N-up: %.2f\n\n" +
-                    "number of Sheets after N-up: %d\n" +
+                    "Ink Cost after %d-up: %.2f\n\n" +
+                    "number of Sheets after %d-up and %s mode: %d\n" +
                     "Cost per Sheet: %.2f\n" +
                     "Total Paper Cost: %.2f\n" +
-                    "Tiered Multiplier: %.2f\n" +
                     "Final Cost(Ink + Paper): %d\n\n"+
                     "Markup: %.2f%%\n" +
                     "Minimum Fee: %.2f\n" +
                     "Finishing Cost: %.2f\n" +
                     "Discount: %.2f%%\n\n" +
-                    "Customer's Cost per sheet of paper: %.2f\n" +
-                    "Customer Final Price: %d\n" +
+                    "Cost per document page: %.2f\n" +
+                    "Customer- Final Price: %d\n" +
                     "Shop Profit: %d",
-                    jobId,
-                    fileSizeInMB, allPages.size(), totalPages,
-                    monoPages.size(), colorPages.size(),
-                    totalCyan, totalMagenta, totalYellow, totalBlack,
-                    processingTime,whichMethod_Used, totalInkCost, ink_cost_after_N_up,
-                    numberOfpagesAfterNup, costOfASingle_PaperSheet, totalPaperCost, tiered_Multiplier,finalCost,
+                    jobId,fileName,fileSizeInMB, allPages.size(), totalPages,
+                    monoPages.size(), colorPages.size(),totalCyan, totalMagenta, totalYellow, totalBlack,
+                    processingTime,whichMethod_Used, totalInkCost, N_up,ink_cost_after_N_up,N_up, duplexMode,
+                    numberOfpagesAfterNup, costOfASingle_PaperSheet, totalPaperCost,finalCost,
                      markupPercentage, minimumFee, finishingCost, discountPercentage,costPerPage,customerFinalPrice, Shop_profit);
 
             emitter.send(summaryMessage);
             emitter.send(SseEmitter.event().name("COMPLETE").data("Analysis complete!"));
+            emitter.complete();
 
-           
-
+        } catch (org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException e) {
+            try {
+                // Send explicit error event over SSE
+                emitter.send(SseEmitter.event().name("ERROR").data("This PDF is password protected. Please upload an unlocked file."));
+            } catch (Exception ignore) {}
+            // Gracefully close stream without handing exception back to Spring MVC
             emitter.complete();
 
         } catch (Exception e) {
-            emitter.completeWithError(e);
+            try {
+                emitter.send(SseEmitter.event().name("ERROR").data("Error analyzing PDF: " + e.getMessage()));
+            } catch (Exception ignore) {}
+            // Gracefully close stream without handing exception back to Spring MVC
+            emitter.complete();
+        
         }
     }
 
@@ -541,7 +578,7 @@ public ResponseEntity<String> recalculateProfit(
 
     double customerPriceBeforeCeiling = subtotal - (subtotal * (report.discountPercentage / 100.0));
     report.customerFinalPrice = (int) Math.ceil(customerPriceBeforeCeiling);
-    report.CostPerPage = (double) report.customerFinalPrice / report.numberOfPagesAfterNup;
+    report.CostPerPage = (double) report.customerFinalPrice / report.totalPages;
     report.Shop_profit = report.customerFinalPrice - report.finalCost;
 
     // Update the cache explicitly (optional but good practice)
@@ -549,31 +586,32 @@ public ResponseEntity<String> recalculateProfit(
 
     // Broadcast the updated results through the existing SSE pipeline
    
-    String summaryMessage = String.format("Recalculated profit for Job ID: %s\n" +
+    String summaryMessage = String.format("Recalculated for Job ID: %s\n" +
+            "File name: %s\n" +
             "File size: %.2f MB | Analyzed: %d/%d\n" +
             "Mono Pages: %d | Color Pages: %d\n" +
             "Ink Usage - C: %.2f%%, M: %.2f%%, Y: %.2f%%, K: %.2f%%\n" +
             "Processing Time: %d s\n" +
             "Method Used: %s\n\n" +
             "Ink Cost after scalling: %.2f\n" +
-            "Ink Cost after N-up: %.2f\n\n" +
-            "number of Sheets after N-up: %d\n" +
+            "Ink Cost after %d-up: %.2f\n\n" +
+            "number of Sheets after %d-up and %s mode: %d\n" +
             "Cost per Sheet: %.2f\n" +
             "Total Paper Cost: %.2f\n" +
-            "Tiered Multiplier: %.2f\n" +
             "Final Cost(Ink + Paper): %d\n\n"+
             "Markup: %.2f%%\n" +
             "Minimum Fee: %.2f\n" +
             "Finishing Cost: %.2f\n" +
             "Discount: %.2f%%\n\n" +
-            "Customer's Cost per sheet of paper: %.2f\n" +
-            "Customer Final Price: %d\n" +
+            "Cost per document page: %.2f\n" +
+            "Customer- Final Price: %d\n" +
             "Shop Profit: %d",
-            jobId, report.fileSizeMB, report.totalPages, report.pdf_page_count,
+            jobId,report.fileName, report.fileSizeMB, report.totalPages, report.pdf_page_count,
             report.monoPagesCount, report.colorPagesCount,
             report.cyanUsage, report.magentaUsage, report.yellowUsage, report.blackUsage,
-            report.processingTimeSeconds, report.whichMethod_Used, report.totalInkCost, report.inkCostAfterNup,
-            report.numberOfPagesAfterNup, report.costOfASingle_PaperSheet, report.totalPaperCost, report.tieredMultiplier, report.finalCost,
+            report.processingTimeSeconds, report.whichMethod_Used, report.totalInkCost,report.N_up, report.inkCostAfterNup,
+            report.N_up, report.duplexMode,
+            report.numberOfPagesAfterNup, report.costOfASingle_PaperSheet, report.totalPaperCost, report.finalCost,
             report.markupPercentage, report.minimumFee, report.finishingCost, report.discountPercentage, report.CostPerPage, report.customerFinalPrice, report.Shop_profit);
 
             

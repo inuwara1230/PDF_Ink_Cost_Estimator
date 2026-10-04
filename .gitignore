@@ -1,5 +1,9 @@
 HELP.md
 target/
+installer_output/
+jpackage-input/
+app_logo.ico
+
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

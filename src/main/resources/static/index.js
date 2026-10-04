@@ -186,16 +186,32 @@ document.addEventListener('DOMContentLoaded', () => {
         statusText.innerText = 'Connecting to server...';
 
         const downloadBtn = document.getElementById('downloadPdfBtn');
+        const recalculateBtn = document.getElementById('recalculateBtn');
         if (downloadBtn) {
             downloadBtn.disabled = true;
             downloadBtn.onclick = null;
         }
 
+        if (recalculateBtn) {
+            recalculateBtn.disabled = true;
+            recalculateBtn.onclick = null;
+        }
+
         const eventSource = new EventSource(`/api/progress/${jobID}`);
+
+        eventSource.onopen = function() {
+            console.log("SSE Connection established for Job:", jobID);
+        };
 
         eventSource.onmessage = function(event) {
             statusText.innerHTML = event.data.replace(/\n/g, '<br>'); 
         };
+
+        eventSource.addEventListener('ERROR', function(event) {
+            console.error("Backend Error:", event.data);
+            statusText.innerText = "Error: " + event.data;
+            eventSource.close();
+        });
 
         eventSource.addEventListener('COMPLETE', function(event) {
             console.log("Calculations finished!");
@@ -224,6 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (recalculateBtn) {
                 recalculateBtn.disabled = false;
+                
 
                 recalculateBtn.onclick = async function() {
                     const newDiscount = document.getElementById('job_discount').value || '0';
@@ -262,8 +279,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         eventSource.onerror = function(err) {
             console.error("SSE Error:", err);
+            // Only append connection error if stream wasn't closed intentionally
+            if (eventSource.readyState === EventSource.CLOSED) {
+                statusText.innerText += "\n[Connection closed]";
+            } else {
+                statusText.innerText += "\n[Connection closed or errored]";
+            }
             eventSource.close();
-            statusText.innerText += "\n[Connection closed or errored]";
+            
         };
 
         const formData = new FormData();
