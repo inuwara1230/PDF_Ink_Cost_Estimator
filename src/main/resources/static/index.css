@@ -14,7 +14,7 @@ html, body {
 }
 
 body {
-    padding: 1.5vh 1.5vw;
+    padding: 1.5vh 1vw;
     display: flex;
     flex-direction: column;
 }
@@ -24,7 +24,7 @@ body {
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: 1400px;
+    max-width: 100%;
     margin: 0 auto; 
     height: 100%;
     overflow: hidden;
@@ -260,7 +260,7 @@ button[type="submit"] { background-color: #22c55e; color: #ffffff; }
 }
 
 #recalculateBtn {
-    background-color: #10b981;
+    background-color: #22c55e;
     color: white;
     padding: 1.5vh 1.2vw;
     font-size: clamp(13px, 2.5vh, 16px);
@@ -429,4 +429,19 @@ hr {
 .refresh-btn:hover {
     background-color: #334155;
     color: #ffffff;
+}
+
+/* Validation Message styling for the recalculate block */
+.validation-message {
+    padding: 0.8vh 1vw;
+    background-color:  #1e293b; /* Subtle dark red */
+    color:#f1f5f9;            /* Light red text */
+    border: 1px solid #f06f6f; 
+    border-radius: 4px;
+    font-size: clamp(11px, 2vh, 14px);
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 1vh;
+    min-height: 3.5vh;         /* Roughly a single sentence in height */
+    flex-shrink: 0;
 }

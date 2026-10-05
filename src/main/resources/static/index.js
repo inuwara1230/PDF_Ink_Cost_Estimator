@@ -27,8 +27,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     customNContainer.style.display = 'none';
                 }
+
+
+                if (this.value === 'booklet') {
+                    const duplexSelect = document.getElementById('duplexMode');
+                    if (duplexSelect) {
+                        duplexSelect.value = 'duplex';
+                    }
+                    
+                }
             });
         }
+
+    
     
     // 2. Event Listener: Color Capability Dropdown Toggle
     document.getElementById('color_capability').addEventListener('change', function() {
@@ -180,7 +191,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const jobID = crypto.randomUUID();
+        const generaterandonJobID = () => {
+            const timestamp = Date.now().toString(); // Convert timestamp to base36
+            const randompart = Math.floor(Math.random() * 8+2).toString(); // Random number to base36
+
+            return timestamp + randompart;
+        };
+
+        //const jobId = crypto.randomUUID(); // Generate a unique job ID for this upload
+        const jobID = generaterandonJobID();
+        alert("Job ID: " + jobID); // For debugging purposes, can be removed in production
+
         ID_for_job = jobID; // Store the job ID for potential future use
         const statusText = document.getElementById('uploadStatus');
         statusText.innerText = 'Connecting to server...';
@@ -240,10 +261,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (recalculateBtn) {
                 recalculateBtn.disabled = false;
+                const validationMsgDiv = document.getElementById('validationMessage');
+
                 
 
                 recalculateBtn.onclick = async function() {
                     const newDiscount = document.getElementById('job_discount').value || '0';
+                    const discountValue = parseFloat(newDiscount);
+                    validationMsgDiv.innerText = ""; // Clear previous validation messages
+                    validationMsgDiv.style.display = 'none'; // Hide validation message initially
+                    
+                    
+                    if (discountValue < 0 || discountValue > 100) {
+                        validationMsgDiv.innerText = "Please enter a valid discount percentage between 0 and 100.";
+                        validationMsgDiv.style.display = 'block';
+                        return; // Stop execution and prevent the backend request
+                    }
                     
                     const statusText = document.getElementById('uploadStatus');
                     statusText.innerText = 'Recalculating...';

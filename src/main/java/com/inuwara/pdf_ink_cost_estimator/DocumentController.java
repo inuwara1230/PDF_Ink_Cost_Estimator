@@ -479,7 +479,6 @@ public class DocumentController {
             report.fileName = fileName;
             report.monoPages = monoPages;
             report.colorPages = colorPages;
-
             report.markupPercentage = markupPercentage;
             report.minimumFee = minimumFee;
             report.finishingCost = finishingCost;
@@ -1170,7 +1169,7 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 } else {
                     content.showText("Standard Pricing Tier Applied");content.newLine();
                 }
-                content.showText(String.format("Cost per sheet of paper: %.2f", report.CostPerPage));
+                content.showText(String.format("Cost per document page: %.2f", report.CostPerPage));
                 content.endText();
 
                 content.setNonStrokingColor(COLOR_TOTAL_BG);
@@ -1187,10 +1186,21 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 content.endText();
 
                 content.beginText();
-                content.setFont(fontBold, 18);
+                content.setFont(fontReg, 18);
                 content.setNonStrokingColor(COLOR_TOTAL_TEXT);
                 content.newLineAtOffset(60, 403);
                 content.showText(String.format("%.2f", (double) report.customerFinalPrice));
+                content.endText();
+
+                content.beginText();
+                // If you have a regular font defined (like fontRegular), use it here. 
+                // Otherwise, you can keep using fontBold or PDType1Font.HELVETICA
+                content.setFont(fontBold, 9); 
+                content.setNonStrokingColor(java.awt.Color.GRAY); 
+                
+                // Positioned at x=40 to align with the left side of your Total box, and y=40 near the bottom of the page
+                content.newLineAtOffset(40, 40); 
+                content.showText("Software developed by Inuwara Design & Integration (InuwaraDI.com) | Contact: +94 XX XXX XXXX");
                 content.endText();
             }
 
