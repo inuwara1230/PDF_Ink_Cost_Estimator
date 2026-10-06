@@ -1,3 +1,4 @@
+
 // Global Paper Collections mapped for dropdowns & scaling
 const standardPapers = [
     { name: "A4", area: 501135.0, priceInput: "A4", label: "A4 (Standard)" },
@@ -8,6 +9,8 @@ const standardPapers = [
 
 let customPapers = [];
 let editingIndex = -1; // Tracks the index of the custom paper currently being edited
+
+
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Auto-load existing user settings on page load
@@ -39,8 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-    
-    
     // 2. Event Listener: Color Capability Dropdown Toggle
     document.getElementById('color_capability').addEventListener('change', function() {
         const full_color = document.getElementById('full_color');

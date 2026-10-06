@@ -1,20 +1,3 @@
-//package com.inuwara.pdf_ink_cost_estimator;
-//
-//import org.springframework.boot.SpringApplication;
-//import org.springframework.boot.autoconfigure.SpringBootApplication;
-//
-//@SpringBootApplication
-//public class PdfInkCostEstimatorApplication {
-//
-//	public static void main(String[] args) {
-//		SpringApplication.run(PdfInkCostEstimatorApplication.class, args);
-//	}
-//
-//}
-// -------------------------------------------------------------------------------
-//below code is used for run the app in a desktop window using JavaFX WebView, which loads the Spring Boot application in a browser-like interface.
-// -------------------------------------------------------------------------------
-
 package com.inuwara.pdf_ink_cost_estimator;
 
 import javafx.application.Application;
@@ -25,6 +8,7 @@ import javafx.stage.Stage;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
+
 
 @SpringBootApplication
 public class PdfInkCostEstimatorApplication extends Application {
@@ -52,8 +36,9 @@ public class PdfInkCostEstimatorApplication extends Application {
 
         Scene scene = new Scene(webView, 1280, 700);
         stage.setScene(scene);
-        stage.setTitle("PDF Ink Cost Estimator");
+        stage.setTitle("PDF Cost Estimator");
         stage.show();
+        
     }
 
     @Override
