@@ -1195,12 +1195,15 @@ private byte[] generateCustomerReport(CalculationReport report) throws Exception
                 content.beginText();
                 // If you have a regular font defined (like fontRegular), use it here. 
                 // Otherwise, you can keep using fontBold or PDType1Font.HELVETICA
-                content.setFont(fontBold, 7); 
+                content.setFont(fontBold, 8); 
                 content.setNonStrokingColor(java.awt.Color.GRAY); 
                 
                 // Positioned at x=40 to align with the left side of your Total box, and y=40 near the bottom of the page
-                content.newLineAtOffset(40, 40); 
-                content.showText("Software developed by Inuwara Design & Integration (InuwaraDI.com) | Contact: +94 XX XXX XXXX");
+                content.newLineAtOffset(40, 80); 
+                content.showText("Software developed by Inuwara Design & Integration (InuwaraDI.com)");content.newLine();
+                content.showText("For inquiries, email: contact@inuwaradi.com");content.newLine();
+                content.showText("For projects, please visit: web: https://inuwaradi.com");content.newLine();
+                content.showText("or simply give a phone call: +94 76 590 9990");content.newLine();  
                 content.endText();
             }
 
