@@ -31,6 +31,7 @@ public class PdfInkCostEstimatorApplication extends Application {
 
     @Override
     public void start(Stage mainStage) {
+        mainStage.getIcons().add(new Image(getClass().getResource("/app_icon.png").toExternalForm()));
         showSplash();
 
         // Boot Spring off the UI thread so the GIF keeps animating
@@ -71,6 +72,7 @@ public class PdfInkCostEstimatorApplication extends Application {
         scene.setFill(Color.TRANSPARENT);
 
         splashStage = new Stage(StageStyle.TRANSPARENT); // no title bar, no borders
+        splashStage.getIcons().add(new Image(getClass().getResource("/app_icon.png").toExternalForm()));
         splashStage.setScene(scene);
         splashStage.centerOnScreen();
         splashStage.show();
@@ -81,7 +83,7 @@ public class PdfInkCostEstimatorApplication extends Application {
         WebEngine engine = webView.getEngine();
 
         mainStage.setScene(new Scene(webView, 1280, 700));
-        mainStage.setTitle("PDF Cost Estimator");
+        mainStage.setTitle("Ink Cost calculator");
 
         // Only reveal the window once the page has rendered
         engine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
