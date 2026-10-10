@@ -3,6 +3,7 @@ target/
 installer_output/
 jpackage-input/
 app_logo.ico
+taskbar_icon_generation.py
 
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
