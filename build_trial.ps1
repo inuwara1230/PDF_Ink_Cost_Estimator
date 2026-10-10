@@ -1,6 +1,6 @@
 # build-trial.ps1
 # Builds the TRIAL installer. Keep this file on the trial-version branch.
-# Usage:  powershell -ExecutionPolicy Bypass -File .\build-trial.ps1
+# Usage:  powershell -ExecutionPolicy Bypass -File .\build_trial.ps1
 
 # ======================= FILL THESE IN ===========================
 $AppName     = "InkCostEstimator"
