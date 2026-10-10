@@ -1,6 +1,6 @@
 # build-full.ps1
 # Builds the FULL (no trial) installer. Run from any folder; it works from the project root.
-# Usage:  powershell -ExecutionPolicy Bypass -File .\build-full.ps1
+# Usage:  powershell -ExecutionPolicy Bypass -File .\build_full.ps1
 
 # ======================= FILL THESE IN ===========================
 $AppName     = "InkCostEstimator"
