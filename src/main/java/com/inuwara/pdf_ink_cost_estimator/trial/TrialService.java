@@ -27,7 +27,7 @@ public class TrialService {
     private static final Logger log = LoggerFactory.getLogger(TrialService.class);
     private static final Status EXPIRED = new Status(true, 0);
 
-    private static final double MAX_DAYS = 0.005;   // 0.005 days = 7.2 minutes, for testing only
+    private static final double MAX_DAYS = 0.01;   // 0.01 days = 14.4 minutes, for testing only
     private static final String SECRET = "CHANGE-ME-to-a-long-random-string";
     private static final long ROLLBACK_TOLERANCE_SECONDS = 3600;   // clock set back > 1 hour = expired
     private static final long REFRESH_NANOS = 60_000_000_000L;     // re-check at most once a minute
@@ -42,7 +42,7 @@ public class TrialService {
     private long cachedAtNanos;
 
 
-    public TrialService(@Value("${trial.days:0.005}") double configuredDays) {
+    public TrialService(@Value("${trial.days:0.01}") double configuredDays) {
         double days = Math.max(0, Math.min(configuredDays, MAX_DAYS));
         this.trialSeconds = Math.round(days * 86400);
         String base = System.getenv("APPDATA");
