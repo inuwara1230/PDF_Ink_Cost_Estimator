@@ -290,6 +290,7 @@ public class DocumentController {
             double accumulated_pdf_page_area = 0.0;
             double total_pdf_pages = allPages.size();
             String whichMethod_Used ="";
+            //whichMethod_Used = (cmykConvertOp != null) ? iccProfile : "Normal RGB Conversion";
 
             for (Integer i : allPages) {
                 boolean isMono = monoPages.contains(i);
@@ -307,28 +308,44 @@ public class DocumentController {
                 int height = image.getHeight();  
                 double totalPixels = width * height;
 
+                final int NEUTRAL_TOLERANCE = 12;   // how close R, G and B must be to count as grey
+
                 double pageCyan = 0.0, pageMagenta = 0.0, pageYellow = 0.0, pageBlack = 0.0;
-
-                
-                //cmykConvertOp != null
-                if(cmykConvertOp != null) {
-                    BufferedImage cmykImage = cmykConvertOp.filter(image, null);
-                    Raster cmykRaster = cmykImage.getRaster();
-
-                    int pixel_[] = new int[4];
+                int[] row = new int[width];         // one row at a time keeps memory low on big pages
+                            
+                if (isMono) {
+                    // Mono page: only black ink is used, so measure darkness directly
                     for (int y = 0; y < height; y++) {
+                        image.getRGB(0, y, width, 1, row, 0, width);
                         for (int x = 0; x < width; x++) {
-                            cmykRaster.getPixel(x, y, pixel_);
-                            if (isColor) {
-                                pageCyan += pixel_[0] / 255.0;
-                                pageMagenta += pixel_[1] / 255.0;
-                                pageYellow += pixel_[2] / 255.0;
-                            }
-                            pageBlack += pixel_[3] / 255.0;
+                            int px = row[x];
+                            double lum = (0.299 * ((px >> 16) & 0xff) + 0.587 * ((px >> 8) & 0xff) + 0.114 * (px & 0xff)) / 255.0;
+                            pageBlack += 1.0 - lum;
                         }
                     }
-                    whichMethod_Used = iccProfile;
-                    System.out.println("cmyk convertion happened");
+                    whichMethod_Used = "Mono Page: Direct Luminance Measurement";
+                } else if (cmykConvertOp != null) {
+                    BufferedImage cmykImage = cmykConvertOp.filter(image, null);
+                    Raster cmykRaster = cmykImage.getRaster();
+                    int[] cmyk = new int[4];
+                    for (int y = 0; y < height; y++) {
+                        image.getRGB(0, y, width, 1, row, 0, width);
+                        for (int x = 0; x < width; x++) {
+                            int px = row[x];
+                            int r = (px >> 16) & 0xff, g = (px >> 8) & 0xff, b = px & 0xff;
+                            if (Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b)) <= NEUTRAL_TOLERANCE) {
+                                // grey or black: printed with black ink only
+                                pageBlack += 1.0 - (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                            } else {
+                                cmykRaster.getPixel(x, y, cmyk);
+                                pageCyan    += cmyk[0] / 255.0;
+                                pageMagenta += cmyk[1] / 255.0;
+                                pageYellow  += cmyk[2] / 255.0;
+                                pageBlack   += cmyk[3] / 255.0;
+                            }
+                        }
+                    }
+                    whichMethod_Used = iccProfile; 
                     cmykImage.flush();
                 }else {
                     int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
@@ -352,6 +369,7 @@ public class DocumentController {
                         }
                     }
                     whichMethod_Used = "Normal RGB Conversion";
+                    
                     System.out.println("normal rgb convertion happened");
                 }
                 
