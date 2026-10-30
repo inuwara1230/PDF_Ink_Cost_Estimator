@@ -161,7 +161,14 @@ button {
 button:hover { opacity: 0.85; }
 button[type="submit"] { background-color: #22c55e; color: #ffffff; }
 #updateButton { background-color: #d1d5db; color: #111827; }
-#clear_settings { background-color: #951818; color: #ffffff; }
+#clear_settings {
+    margin-left: auto;              /* pushed away from Save so they can't be mixed up */
+    background-color: transparent;
+    color: #f87171;
+    border: 1px solid #7f1d1d;
+}
+#clear_settings:hover { background-color: #7f1d1d; color: #ffffff; opacity: 1; }
+#clear_settings.armed { background-color: #b91c1c; color: #ffffff; border-color: #b91c1c; }
 
 .upload-container {
     display: grid;
@@ -303,22 +310,29 @@ button[type="submit"] { background-color: #22c55e; color: #ffffff; }
 .left-column, .right-column {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 0.5vh;
     height: 100%;
+    min-width: 0;
 }
 
 .field-group {
     margin-bottom: 0.5vh;
 }
 
-#paperCostdiv {
-    padding: 1vh;
+/* One look for every settings group */
+.card {
+    padding: 0.8vh 1vw;
     border: 1px solid #334155;
     border-radius: 6px;
     background-color: #0f172a;
+    min-width: 0;
+    
+}
+
+#paperCostdiv {
     display: flex;
     flex-direction: column;
-    max-height: 45vh;
 }
 
 .paper-inputs-row {
@@ -331,22 +345,12 @@ button[type="submit"] { background-color: #22c55e; color: #ffffff; }
     margin-bottom: 0.5vh;
 }
 
-#pricingSettings,#shopSettings {
-    padding: 1vh;
-    border: 1px solid #334155;
-    border-radius: 6px;
-    background-color: #0f172a;
-    margin-bottom: 0.5vh;
-}
+
 
 hr {
     border: none;
     border-top: 1px solid #334155; 
     margin: 1vh 0;
-    flex-shrink: 0;
-}
-
-.logo-upload-section {
     flex-shrink: 0;
 }
 
@@ -360,8 +364,10 @@ hr {
 
 .form-actions {
     display: flex;
-    gap: 0.8vw;
+    gap: 1vw;
     margin-top: 1vh;
+    padding-top: 1vh;
+    border-top: 1px solid #334155;
     flex-shrink: 0;
     align-items: center;
 }
@@ -370,8 +376,10 @@ hr {
     display: inline-block;
     color: #ecedec; 
     font-weight: 500;
-    font-size: clamp(11px, 2.5vh, 13px);
+    font-size: clamp(11px, 2.2vh, 13px);
 }
+#settingsStatus.status-ok { color: #4ade80; }
+#settingsStatus.status-error { color: #f87171; }
 
 /* Custom Paper Styles & Dedicated Scrolling */
 .custom-paper-list {
@@ -446,4 +454,87 @@ hr {
     flex-shrink: 0;
 }
 
+/* ---------- Settings tab polish ---------- */
 
+.hint {
+    margin-top: 0.4vh;
+    font-size: clamp(9px, 1.6vh, 12px);
+    color: #94a3b8;
+}
+
+.sub-heading {
+    margin-top: 1vh;
+    margin-bottom: 0.5vh;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+/* cartridge table: name | price | yield, with real column headings */
+.cart-head,
+.cart-row {
+    display: grid;
+    grid-template-columns: 92px 1fr 1fr;
+    gap: 0.8vw;
+    align-items: center;
+}
+.cart-head {
+    margin-bottom: 0.3vh;
+    font-size: clamp(10px, 1.7vh, 12px);
+    color: #94a3b8;
+}
+.cart-row { margin-bottom: 0.9vh; }
+.cart-row input { margin-bottom: 0 !important; }
+.cart-name {
+    display: flex;
+    align-items: center;
+    font-size: clamp(11px, 1.9vh, 14px);
+    color: #cbd5e1;
+}
+.dot {
+    display: inline-block;
+    width: 0.8em;
+    height: 0.8em;
+    margin-right: 0.5em;
+    border-radius: 50%;
+    border: 1px solid #475569;
+}
+.dot.c { background: #06b6d4; }
+.dot.m { background: #ec4899; }
+.dot.y { background: #facc15; }
+.dot.k { background: #0b132b; border-color: #94a3b8; }
+
+/* buttons that sit beside inputs share one quiet style */
+.btn-secondary { background-color: #334155; color: #f1f5f9; }
+#saveSettingsBtn { padding: 1vh 2vw; }
+
+#removeIccBtn { background-color: #951818; color: #ffffff; }
+#removeIccBtn:disabled { background-color: #334155; color: #64748b; cursor: not-allowed; }
+
+#iccStatus {
+    font-size: clamp(10px, 1.7vh, 12px);
+    font-weight: 500;
+    margin-left: 0.6vw;
+}
+
+/* file pickers that match the dark theme */
+input[type="file"]::-webkit-file-upload-button {
+    background: #334155;
+    color: #f1f5f9;
+    border: none;
+    border-radius: 3px;
+    padding: 0.3vh 0.8vw;
+    margin-right: 0.6vw;
+    cursor: pointer;
+}
+input[type="file"]::file-selector-button {
+    background: #334155;
+    color: #f1f5f9;
+    border: none;
+    border-radius: 3px;
+    padding: 0.3vh 0.8vw;
+    margin-right: 0.6vw;
+    cursor: pointer;
+}
+
+/* no empty box while there are no custom papers */
+.custom-paper-list:empty { display: none; }
