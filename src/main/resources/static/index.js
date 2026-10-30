@@ -1,4 +1,3 @@
-
 // Global Paper Collections mapped for dropdowns & scaling
 const standardPapers = [
     { name: "A4", area: 501135.0, priceInput: "A4", label: "A4 (Standard)" },
@@ -9,6 +8,7 @@ const standardPapers = [
 
 let customPapers = [];
 let editingIndex = -1; // Tracks the index of the custom paper currently being edited
+let settingsSaved = false; // true once settings exist in the database (decides create vs update on Save)
 
 
 
@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Auto-load existing user settings on page load
     loadSavedSettings();
     loadIccProfiles();
+    loadCustomIccProfiles();
     let ID_for_job = null;
 
     const printModeSelect = document.getElementById('printMode');
@@ -96,18 +97,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 3. Event Listener: Save Button (Form Submission)
-    document.getElementById('inkCostForm').addEventListener('submit', function(event) {
+    document.getElementById('inkCostForm').addEventListener('submit', async function(event) {
         event.preventDefault();
-        sendSettingsRequest('/api/settings/create', 'POST', 'Settings created successfully!')
-    });
-
-    // 4. Event Listener: Update Button
-    document.getElementById('updateButton').addEventListener('click', function() {
-       sendSettingsRequest('/api/settings/update', 'PUT', 'Settings updated successfully!');
+        if (settingsSaved) {
+            await sendSettingsRequest('/api/settings/update', 'PUT', 'Settings saved.');
+        } else {
+            const created = await sendSettingsRequest('/api/settings/create', 'POST', 'Settings saved.');
+            if (created) settingsSaved = true;
+        }
     });
 
     // 5. Event Listener: Clear Settings Button
     document.getElementById('clear_settings').addEventListener('click', async function() {
+        const resetBtn = this;
+        if (!resetBtn.classList.contains('armed')) {
+            resetBtn.classList.add('armed');
+            resetBtn.textContent = 'Click again to erase everything';
+            setTimeout(() => {
+                resetBtn.classList.remove('armed');
+                resetBtn.textContent = 'Reset all settings';
+            }, 4000);
+            return;
+        }
+        resetBtn.classList.remove('armed');
+        resetBtn.textContent = 'Reset all settings';
+
         document.getElementById('inkCostForm').reset();
         document.getElementById('covarage_percentage').value = 5; 
         document.getElementById('color_capability').dispatchEvent(new Event('change'));
@@ -126,11 +140,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const message = await response.text();
+            const statusEl = document.getElementById('settingsStatus');
+            statusEl.innerText = message;
+            statusEl.className = response.ok ? 'status-ok' : 'status-error';
             if (response.ok) {
                 console.log(message);
-                document.getElementById('settingsStatus').innerText = message;
-            } else {
-                document.getElementById('settingsStatus').innerText = message;
+                settingsSaved = false;   // nothing saved any more: the next Save creates again
             }
         } catch (error) {
             console.error('Error clearing printer settings:', error);
@@ -390,31 +405,34 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-async function loadIccProfiles() {
+async function loadIccProfiles(preferred) {
     const select = document.getElementById('iccProfileSelect');
     if (!select) return;
+    const previous = select.value;
 
     try {
         const response = await fetch('/api/icc_profiles');
-        if (response.ok) {
-            const profiles = await response.json();
-            select.innerHTML = '';
+        if (!response.ok) return;
+        const profiles = await response.json();
+        select.innerHTML = '';
 
-            if (profiles.length === 0) {
-                const opt = document.createElement('option');
-                opt.value = 'USWebUncoated.icc';
-                opt.textContent = 'USWebUncoated.icc (Default)';
-                select.appendChild(opt);
-                return;
-            }
-
-            profiles.forEach(profile => {
-                const opt = document.createElement('option');
-                opt.value = profile;
-                opt.textContent = profile;
-                select.appendChild(opt);
-            });
+        if (profiles.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = 'USWebUncoated.icc';
+            opt.textContent = 'USWebUncoated.icc (Default)';
+            select.appendChild(opt);
+            return;
         }
+
+        profiles.forEach(profile => {
+            const opt = document.createElement('option');
+            opt.value = profile;
+            opt.textContent = profile;
+            select.appendChild(opt);
+        });
+
+        const wanted = [preferred, previous, 'USWebUncoated.icc'].find(n => n && profiles.includes(n));
+        if (wanted) select.value = wanted;
     } catch (err) {
         console.error("Failed to load ICC profiles:", err);
     }
@@ -560,7 +578,8 @@ async function sendSettingsRequest(url, method, successMessage) {
 
         if (!cyanPrice || !cyanYield || !magentaPrice || !magentaYield || !yellowPrice || !yellowYield) {
             setting_massage.innerText = 'Error: All Cyan, Magenta, and Yellow price and yield fields must be filled when Full Color is selected.';
-            return; 
+            setting_massage.className = 'status-error';
+            return false;
         }
     }
 
@@ -574,14 +593,14 @@ async function sendSettingsRequest(url, method, successMessage) {
         });
 
         const message = await response.text();
-        if (response.ok) {
-            setting_massage.innerText = message;
-        } else {
-            setting_massage.innerText = message;
-        }
+        setting_massage.innerText = message;
+        setting_massage.className = response.ok ? 'status-ok' : 'status-error';
+        return response.ok;
     } catch (error) {
         console.error('Error processing printer settings:', error);
-        alert('A network error occurred.');
+        setting_massage.innerText = 'A network error occurred.';
+        setting_massage.className = 'status-error';
+        return false;
     }
 }
 
@@ -594,6 +613,7 @@ async function loadSavedSettings() {
         });
         if (response.ok) {
             const data = await response.json();
+            settingsSaved = true;
             
             document.getElementById('printer_type').value = data.printerType || 'inkjet';
             document.getElementById('covarage_percentage').value = data.isoCoveragePercentage ?? 5;
@@ -687,5 +707,83 @@ async function uploadLogo() {
     } catch (error) {
         statusText.innerText = "Network error occurred.";
         statusText.style.color = "red";
+    }
+}
+
+function setIccStatus(message, color) {
+    const el = document.getElementById('iccStatus');
+    el.innerText = message;
+    el.style.color = color;
+}
+
+async function uploadIccProfile() {
+    const fileInput = document.getElementById('iccInput');
+    if (fileInput.files.length === 0) {
+        setIccStatus('Please choose a profile file first.', '#f87171');
+        return;
+    }
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    try {
+        setIccStatus('Adding...', '#93c5fd');
+        const response = await fetch('/api/icc_profiles/upload', { method: 'POST', body: formData });
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+            setIccStatus('Added: ' + data.name, '#4ade80');
+            fileInput.value = '';
+            await loadIccProfiles();
+            await loadCustomIccProfiles();
+        } else {
+            setIccStatus(data.error || 'Could not add the profile (is the file too large?).', '#f87171');
+        }
+    } catch (e) {
+        setIccStatus('Network error occurred.', '#f87171');
+    }
+}
+
+async function loadCustomIccProfiles() {
+    const select = document.getElementById('customIccSelect');
+    const btn = document.getElementById('removeIccBtn');
+    if (!select || !btn) return;
+    try {
+        const response = await fetch('/api/icc_profiles/custom');
+        const names = response.ok ? await response.json() : [];
+        select.innerHTML = '';
+        if (names.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No added profiles yet';
+            select.appendChild(opt);
+        } else {
+            names.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = n;
+                select.appendChild(opt);
+            });
+        }
+        select.disabled = btn.disabled = names.length === 0;
+    } catch (e) {
+        console.error('Failed to load added profiles:', e);
+    }
+}
+
+async function removeIccProfile() {
+    const name = document.getElementById('customIccSelect').value;
+    if (!name) return;
+    try {
+        const response = await fetch('/api/icc_profiles?name=' + encodeURIComponent(name), { method: 'DELETE' });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok) {
+            setIccStatus('Removed: ' + name, '#4ade80');
+            await loadIccProfiles();
+            await loadCustomIccProfiles();
+        } else {
+            setIccStatus(data.error || 'Could not remove the profile.', '#f87171');
+        }
+    } catch (e) {
+        setIccStatus('Network error occurred.', '#f87171');
     }
 }
