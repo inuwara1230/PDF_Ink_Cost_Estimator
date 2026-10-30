@@ -20,7 +20,7 @@ import java.awt.image.Raster;
 import java.awt.color.ICC_ColorSpace;
 import java.awt.color.ICC_Profile;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
+//import java.io.InputStream;
 import java.util.*;
 
 
@@ -28,8 +28,8 @@ import java.util.*;
 
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.core.io.Resource;
+//import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+//import org.springframework.core.io.Resource;
 
 import org.springframework.util.StreamUtils;
 import java.nio.file.Files;
