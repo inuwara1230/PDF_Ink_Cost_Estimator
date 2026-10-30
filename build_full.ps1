@@ -3,7 +3,7 @@
 # Usage:  powershell -ExecutionPolicy Bypass -File .\build_full.ps1
 
 # ======================= FILL THESE IN ===========================
-$AppName     = "InkCostCalculatorFull_1.0.1"                 # shown in the Start menu and on the desktop shortcut
+$AppName     = "InkCostCalculatorFull"                 # shown in the Start menu and on the desktop shortcut
 $AppVersion  = "1.0.1"                     # keep this >= the trial's version
 $Vendor      = "InuwaraDI.com"                 # shown as Publisher in Installed apps
 $UpgradeUuid = "f996f21a-645d-457b-ab93-e794407ceec8"      # same value in build-trial.ps1; NEVER change it
