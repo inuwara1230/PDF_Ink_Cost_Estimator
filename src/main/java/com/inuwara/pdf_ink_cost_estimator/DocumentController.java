@@ -46,11 +46,19 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.concurrent.TimeUnit;
 
+import com.inuwara.pdf_ink_cost_estimator.icc.IccProfileService;
+
 
 
 @RestController
 @RequestMapping("/api")
 public class DocumentController {
+
+    private final IccProfileService iccProfiles;
+
+    public DocumentController(IccProfileService iccProfiles) {
+        this.iccProfiles = iccProfiles;
+    }
 
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     // Store finished calculation reports mapped by jobId
@@ -62,50 +70,16 @@ public class DocumentController {
     
 
 
-    @GetMapping("/icc_profiles")
-    public ResponseEntity<List<String>> getIccProfiles() {
-        List<String> profileNames = new ArrayList<>();
-        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-        try {
-            // Scan for all files in the profiles classpath folder
-            Resource[] resources = resolver.getResources("classpath:profiles/*");
-            for (Resource resource : resources) {
-                String filename = resource.getFilename();
-                if (filename != null && (filename.toLowerCase().endsWith(".icc") || filename.toLowerCase().endsWith(".icm"))) {
-                    try (InputStream is = resource.getInputStream()) {
-                        // Attempt to parse, but fallback to including the filename if java.awt strict validation fails
-                        ICC_Profile profile = ICC_Profile.getInstance(is);
-                        if (profile != null) {
-                            profileNames.add(filename);
-                            continue;
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Notice: Skipping strict Java AWT parsing for " + filename + " (adding by extension match).");
-                    }
-                    // Add the file to the dropdown list based on valid extension
-                    profileNames.add(filename);
-                }
-            }
-            return ResponseEntity.ok(profileNames);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).build();
-        }
-    }
-
-    // Dynamic ICC Profile loader per request
+    
     private ColorConvertOp createCmykConvertOp(String profileName) {
-        if (profileName == null || profileName.trim().isEmpty()) {
-            profileName = "USWebUncoated.icc";
-        }
-        try (InputStream is_ = new ClassPathResource("profiles/" + profileName).getInputStream()) {
-            ICC_Profile cmykProfile = ICC_Profile.getInstance(is_);
-            ICC_ColorSpace cmykSpace = new ICC_ColorSpace(cmykProfile);
-            return new ColorConvertOp(cmykSpace, null);
-        } catch (Exception e) {
-            System.err.println("Warning: Failed to load ICC profile (" + profileName + "): " + e.getMessage());
-            return null;
-        }
+    try {
+        ICC_Profile cmykProfile = iccProfiles.load(profileName);
+        return new ColorConvertOp(new ICC_ColorSpace(cmykProfile), null);
+    } catch (Exception e) {
+        System.err.println("Warning: Failed to load ICC profile (" + profileName + "): " + e.getMessage());
+        return null;
     }
+}
 
     //private ColorConvertOp cmykConvertOp;
 

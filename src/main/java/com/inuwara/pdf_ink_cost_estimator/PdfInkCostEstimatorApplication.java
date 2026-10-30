@@ -82,7 +82,7 @@ public class PdfInkCostEstimatorApplication extends Application {
         WebView webView = new WebView();
         WebEngine engine = webView.getEngine();
 
-        mainStage.setScene(new Scene(webView, 1280, 700));
+        mainStage.setScene(new Scene(webView, 1280, 750));
         mainStage.setTitle("Ink Cost calculator");
 
         // Only reveal the window once the page has rendered
