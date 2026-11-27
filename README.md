@@ -10,4 +10,4 @@ Figure 1: application dashboard view.
 <br>
 <br>
 <img width="1917" height="1020" alt="settings interface" src="https://github.com/user-attachments/assets/703e11ce-e2e4-4706-b4d3-0eb2e4068659" />
-
+Figure 2: application settings view.
